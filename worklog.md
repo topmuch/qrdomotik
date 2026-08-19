@@ -25,3 +25,33 @@ Stage Summary:
 - Types TypeScript : QrType (9 types), HomeMemberRole, ProductCategory, ProductStatus, interfaces de contenu JSON
 - Landing page : Hero branding, 9 modules QR avec exemples JSON, diagramme de relations, structure projet
 - Prochaine étape : Étape 2 — Authentification + Dashboard Home/Room
+
+---
+Task ID: 2
+Agent: Main Architect
+Task: Étape 2 — Authentification et Dashboard propriétaire (Home & Room)
+
+Work Log:
+- Installé bcryptjs + @types/bcryptjs
+- Configuré NextAuth.js v4 (CredentialsProvider, JWT strategy, callbacks)
+- Créé /api/auth/[...nextauth]/route.ts (handler GET+POST)
+- Créé /api/auth/register/route.ts (inscription avec validation Zod, hash bcrypt, création maison par défaut)
+- Créé /api/homes/route.ts (GET liste, POST création)
+- Créé /api/homes/[id]/route.ts (GET détail, PATCH mise à jour, DELETE suppression)
+- Créé /api/rooms/route.ts (GET liste par homeId, POST création)
+- Créé /api/rooms/[id]/route.ts (GET, PATCH, DELETE avec vérification rôle)
+- Créé src/store/home-store.ts (Zustand : homes, selectedHome, rooms, refresh)
+- Créé src/components/providers.tsx (SessionProvider wrapper)
+- Construit la page principale avec 2 états : AuthForm (login/register) et Dashboard
+- Dashboard : sidebar homes responsive, grille de pièces avec icônes, CRUD complet
+- Sélecteur d'icônes de pièces (13 icônes Lucide)
+- Corrigé le bug de mise à jour du compteur sidebar après CRUD rooms
+- Vérifié le flow complet : Inscription → Dashboard → Création maison → Ajout de pièces
+- Vérifié lint (0 erreurs), dev logs (aucune erreur runtime)
+
+Stage Summary:
+- Auth : NextAuth CredentialsProvider + JWT, bcrypt hash, auto-login après inscription
+- API Routes : 7 endpoints REST (auth/register, homes CRUD, rooms CRUD)
+- UI : Login/Register animé (Framer Motion), Dashboard responsive avec sidebar
+- Sécurité : Vérification membership sur chaque endpoint (RLS applicatif)
+- Prochaine étape : Étape 3 — Moteur de création QR Code (formulaire type + slug + téléchargement PNG)
