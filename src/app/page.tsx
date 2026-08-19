@@ -32,12 +32,22 @@ import {
   Pill, Star, Package, Download, Eye, Power, PowerOff,
   Copy, Check, Bell, Settings, PackageSearch, ToggleLeft, ToggleRight,
   Zap, UtensilsCrossed, MessageSquare,
+  // V3 Icons
+  MapPin, Siren, Store, DollarSign, CalendarCheck, Wrench, Flame,
 } from 'lucide-react';
 import { ContentEditor, StockDlcPanel } from '@/components/dashboard/ContentEditor';
 import { ActivityLogs } from '@/components/dashboard/ActivityLogs';
 import { MembersPanel } from '@/components/dashboard/MembersPanel';
 import { NotificationBell } from '@/components/dashboard/NotificationBell';
 import { NotificationPermission } from '@/components/dashboard/NotificationPermission';
+// V3 Components
+import { NeighborhoodView } from '@/components/neighborhood/NeighborhoodView';
+import { FlashSaleView } from '@/components/flash-sale/FlashSaleView';
+import { ArtisanDashboard } from '@/components/artisan/ArtisanDashboard';
+import { BookingView } from '@/components/booking/BookingView';
+import { EmergencyView } from '@/components/emergency/EmergencyView';
+import { MonetizationDashboard } from '@/components/monetization/MonetizationDashboard';
+import { ReviewSystem } from '@/components/reviews/ReviewSystem';
 import { ROOM_ICONS } from '@/lib/constants';
 import { QR_TYPE_LABELS, QR_TYPE_DESCRIPTIONS, QR_TYPE_ICONS, type QrType } from '@/types';
 
@@ -52,6 +62,8 @@ const QR_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> =
   shopping_list: ShoppingCart, doorman: DoorOpen, medication: Pill,
   chores: Star, stock_dlc: Package, guestbook: MessageSquare,
   energy_counter: Zap, keys_tracker: KeyRound, daily_menu: UtensilsCrossed,
+  // V3
+  emergency_service: Siren, neighborhood: MapPin,
 };
 
 const QR_COLOR_MAP: Record<string, string> = {
@@ -68,6 +80,9 @@ const QR_COLOR_MAP: Record<string, string> = {
   energy_counter: 'bg-yellow-50 text-yellow-700 border-yellow-200',
   keys_tracker: 'bg-cyan-50 text-cyan-700 border-cyan-200',
   daily_menu: 'bg-red-50 text-red-700 border-red-200',
+  // V3
+  emergency_service: 'bg-red-600 text-white border-red-700',
+  neighborhood: 'bg-emerald-50 text-emerald-700 border-emerald-200',
 };
 
 // ─── Defaults content per type ──────────────────────────────────────────
@@ -188,7 +203,7 @@ function RoomIconSelector({ value, onChange }: { value: string; onChange: (icon:
 // QR TYPE SELECTOR
 // ═══════════════════════════════════════════════════════════════════════════
 function QrTypeSelector({ value, onChange }: { value: string; onChange: (type: string) => void }) {
-  const types: QrType[] = ['wifi', 'link', 'info', 'postit', 'shopping_list', 'doorman', 'medication', 'chores', 'stock_dlc', 'guestbook', 'energy_counter', 'keys_tracker', 'daily_menu'];
+  const types: QrType[] = ['wifi', 'link', 'info', 'postit', 'shopping_list', 'doorman', 'medication', 'chores', 'stock_dlc', 'guestbook', 'energy_counter', 'keys_tracker', 'daily_menu', 'emergency_service', 'neighborhood'];
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
       {types.map((type) => {
@@ -251,6 +266,14 @@ function Dashboard() {
   const [showLogs, setShowLogs] = useState(false);
   const [showStock, setShowStock] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
+  // V3 panels
+  const [showNeighborhood, setShowNeighborhood] = useState(false);
+  const [showFlashSale, setShowFlashSale] = useState(false);
+  const [showArtisan, setShowArtisan] = useState(false);
+  const [showBooking, setShowBooking] = useState(false);
+  const [showEmergency, setShowEmergency] = useState(false);
+  const [showMonetization, setShowMonetization] = useState(false);
+  const [showReviews, setShowReviews] = useState(false);
 
   useEffect(() => { store.refreshHomes(); }, []);
 
@@ -635,6 +658,28 @@ function Dashboard() {
                 <Button variant="outline" size="sm" onClick={() => setShowStock(!showStock)} className={showStock ? 'bg-lime-50 border-lime-300 text-lime-700' : ''}>
                   <PackageSearch className="w-4 h-4 mr-1.5" /> Stock & DLC
                 </Button>
+                {/* V3 quick action buttons */}
+                <Button variant="outline" size="sm" onClick={() => setShowNeighborhood(!showNeighborhood)} className={showNeighborhood ? 'bg-emerald-50 border-emerald-300 text-emerald-700' : ''}>
+                  <MapPin className="w-4 h-4 mr-1.5" /> Quartier
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setShowFlashSale(!showFlashSale)} className={showFlashSale ? 'bg-orange-50 border-orange-300 text-orange-700' : ''}>
+                  <Flame className="w-4 h-4 mr-1.5" /> Flash
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setShowArtisan(!showArtisan)} className={showArtisan ? 'bg-violet-50 border-violet-300 text-violet-700' : ''}>
+                  <Wrench className="w-4 h-4 mr-1.5" /> Artisans
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setShowBooking(!showBooking)} className={showBooking ? 'bg-sky-50 border-sky-300 text-sky-700' : ''}>
+                  <CalendarCheck className="w-4 h-4 mr-1.5" /> Réservation
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setShowEmergency(!showEmergency)} className={showEmergency ? 'bg-red-50 border-red-300 text-red-700' : ''}>
+                  <Siren className="w-4 h-4 mr-1.5" /> Urgence
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setShowMonetization(!showMonetization)} className={showMonetization ? 'bg-amber-50 border-amber-300 text-amber-700' : ''}>
+                  <DollarSign className="w-4 h-4 mr-1.5" /> Monétisation
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setShowReviews(!showReviews)} className={showReviews ? 'bg-yellow-50 border-yellow-300 text-yellow-700' : ''}>
+                  <Star className="w-4 h-4 mr-1.5" /> Avis
+                </Button>
               </div>
 
               {/* Activity Logs */}
@@ -666,6 +711,71 @@ function Dashboard() {
                   </CardHeader>
                   <CardContent>
                     <StockDlcPanel homeId={selectedHome.id} />
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* ═══ V3 MODULES ═══ */}
+
+              {/* Étape 4: Mon Quartier Connecté */}
+              {showNeighborhood && (
+                <Card className="border-emerald-200">
+                  <CardContent className="p-4">
+                    <NeighborhoodView />
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Étape 5: Ventes Flash */}
+              {showFlashSale && (
+                <Card className="border-orange-200">
+                  <CardContent className="p-4">
+                    <FlashSaleView />
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Étape 6: Artisans */}
+              {showArtisan && (
+                <Card className="border-violet-200">
+                  <CardContent className="p-4">
+                    <ArtisanDashboard />
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Étape 7: Réservation */}
+              {showBooking && (
+                <Card className="border-sky-200">
+                  <CardContent className="p-4">
+                    <BookingView />
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Étape 8: Urgence */}
+              {showEmergency && (
+                <Card className="border-red-200">
+                  <CardContent className="p-4">
+                    <EmergencyView />
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Étape 9: Monétisation */}
+              {showMonetization && (
+                <Card className="border-amber-200">
+                  <CardContent className="p-4">
+                    <MonetizationDashboard />
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Étape 10: Avis & Notes */}
+              {showReviews && (
+                <Card className="border-yellow-200">
+                  <CardContent className="p-4">
+                    <ReviewSystem />
                   </CardContent>
                 </Card>
               )}
@@ -819,11 +929,13 @@ function Dashboard() {
               <span className="font-semibold text-foreground">QR Domotik</span>
               <span>— Plateforme complète</span>
             </div>
-            <div className="flex items-center gap-3">
-              <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> 13 modules</span>
+            <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+              <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> 15 modules</span>
               <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Multi-utilisateurs</span>
               <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Rôles & Permissions</span>
               <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> PWA</span>
+              <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-orange-500" /> Marketplace Pro</span>
+              <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-violet-500" /> Avis & Notes</span>
             </div>
           </div>
         </div>

@@ -1,0 +1,850 @@
+     1→'use client';
+     2→
+     3→import { useSession, signIn, signOut } from 'next-auth/react';
+     4→import { useEffect, useState, useCallback } from 'react';
+     5→import { useHomeStore, type QrCodeInfo } from '@/store/home-store';
+     6→import { toast } from 'sonner';
+     7→import { motion, AnimatePresence } from 'framer-motion';
+     8→import Image from 'next/image';
+     9→import {
+    10→  Card, CardContent, CardDescription, CardHeader, CardTitle,
+    11→} from '@/components/ui/card';
+    12→import { Button } from '@/components/ui/button';
+    13→import { Input } from '@/components/ui/input';
+    14→import { Label } from '@/components/ui/label';
+    15→import { Badge } from '@/components/ui/badge';
+    16→import { Separator } from '@/components/ui/separator';
+    17→import { ScrollArea } from '@/components/ui/scroll-area';
+    18→
+    19→import {
+    20→  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+    21→} from '@/components/ui/dialog';
+    22→import {
+    23→  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+    24→  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+    25→} from '@/components/ui/alert-dialog';
+    26→import {
+    27→  QrCode, Home, Plus, LogIn, LogOut, UserPlus, Users,
+    28→  Bed, Bath, Sofa, CookingPot, DoorOpen, Car, Lamp, Monitor,
+    29→  Flower2, WashingMachine, Refrigerator, Tv, Warehouse, KeyRound,
+    30→  Trash2, Pencil, Menu, X, LayoutDashboard, Square,
+    31→  Wifi, ExternalLink, BookOpen, StickyNote, ShoppingCart,
+    32→  Pill, Star, Package, Download, Eye, Power, PowerOff,
+    33→  Copy, Check, Bell, Settings, PackageSearch, ToggleLeft, ToggleRight,
+    34→  Zap, UtensilsCrossed, MessageSquare,
+    35→} from 'lucide-react';
+    36→import { ContentEditor, StockDlcPanel } from '@/components/dashboard/ContentEditor';
+    37→import { ActivityLogs } from '@/components/dashboard/ActivityLogs';
+    38→import { MembersPanel } from '@/components/dashboard/MembersPanel';
+    39→import { NotificationBell } from '@/components/dashboard/NotificationBell';
+    40→import { NotificationPermission } from '@/components/dashboard/NotificationPermission';
+    41→import { ROOM_ICONS } from '@/lib/constants';
+    42→import { QR_TYPE_LABELS, QR_TYPE_DESCRIPTIONS, QR_TYPE_ICONS, type QrType } from '@/types';
+    43→
+    44→// ─── Icon Maps ──────────────────────────────────────────────────────────
+    45→const ROOM_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+    46→  Square, Bed, Bath, Sofa, CookingPot, DoorOpen, Car, Lamp, Monitor,
+    47→  Flower2, WashingMachine, Refrigerator, Tv, Warehouse,
+    48→};
+    49→
+    50→const QR_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+    51→  wifi: Wifi, link: ExternalLink, info: BookOpen, postit: StickyNote,
+    52→  shopping_list: ShoppingCart, doorman: DoorOpen, medication: Pill,
+    53→  chores: Star, stock_dlc: Package, guestbook: MessageSquare,
+    54→  energy_counter: Zap, keys_tracker: KeyRound, daily_menu: UtensilsCrossed,
+    55→};
+    56→
+    57→const QR_COLOR_MAP: Record<string, string> = {
+    58→  wifi: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    59→  link: 'bg-violet-50 text-violet-700 border-violet-200',
+    60→  info: 'bg-sky-50 text-sky-700 border-sky-200',
+    61→  postit: 'bg-amber-50 text-amber-700 border-amber-200',
+    62→  shopping_list: 'bg-rose-50 text-rose-700 border-rose-200',
+    63→  doorman: 'bg-orange-50 text-orange-700 border-orange-200',
+    64→  medication: 'bg-teal-50 text-teal-700 border-teal-200',
+    65→  chores: 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200',
+    66→  stock_dlc: 'bg-lime-50 text-lime-700 border-lime-200',
+    67→  guestbook: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+    68→  energy_counter: 'bg-yellow-50 text-yellow-700 border-yellow-200',
+    69→  keys_tracker: 'bg-cyan-50 text-cyan-700 border-cyan-200',
+    70→  daily_menu: 'bg-red-50 text-red-700 border-red-200',
+    71→};
+    72→
+    73→// ─── Defaults content per type ──────────────────────────────────────────
+    74→const DEFAULT_CONTENT: Record<string, string> = {
+    75→  wifi: JSON.stringify({ ssid: '', password: '', security: 'WPA2' }),
+    76→  link: JSON.stringify({ url: '', title: '', description: '' }),
+    77→  info: JSON.stringify({ title: '', body: '' }),
+    78→  postit: JSON.stringify({ message: '', color: 'yellow' }),
+    79→  shopping_list: JSON.stringify({ items: [] }),
+    80→  doorman: JSON.stringify({ predefinedInstructions: [], showMessageField: true, showRingButton: true, welcomeMessage: '' }),
+    81→  medication: JSON.stringify({ medications: [{ name: '', dosage: '', time: '08:00' }], reminderMessage: '' }),
+    82→  chores: JSON.stringify({ chores: [], rewardMessage: '' }),
+    83→  stock_dlc: JSON.stringify({ tracked: true }),
+    84→};
+    85→
+    86→// ─── Animations ──────────────────────────────────────────────────────────
+    87→const fadeIn = { hidden: { opacity: 0, y: 16 }, visible: { opacity: 1, y: 0 } };
+    88→const stagger = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.06 } } };
+    89→
+    90→// ═══════════════════════════════════════════════════════════════════════════
+    91→// AUTH FORM
+    92→// ═══════════════════════════════════════════════════════════════════════════
+    93→function AuthForm() {
+    94→  const [isLogin, setIsLogin] = useState(true);
+    95→  const [loading, setLoading] = useState(false);
+    96→  const [email, setEmail] = useState('');
+    97→  const [password, setPassword] = useState('');
+    98→  const [fullName, setFullName] = useState('');
+    99→
+   100→  const handleSubmit = async (e: React.FormEvent) => {
+   101→    e.preventDefault();
+   102→    setLoading(true);
+   103→    try {
+   104→      if (!isLogin) {
+   105→        const res = await fetch('/api/auth/register', {
+   106→          method: 'POST', headers: { 'Content-Type': 'application/json' },
+   107→          body: JSON.stringify({ email, password, fullName }),
+   108→        });
+   109→        const data = await res.json();
+   110→        if (!data.success) { toast.error(data.error); return; }
+   111→        toast.success('Compte créé ! Connexion...');
+   112→      }
+   113→      const result = await signIn('credentials', { email, password, redirect: false });
+   114→      if (result?.error) toast.error('Email ou mot de passe incorrect');
+   115→    } catch { toast.error('Erreur de connexion'); }
+   116→    finally { setLoading(false); }
+   117→  };
+   118→
+   119→  return (
+   120→    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-slate-50 via-white to-emerald-50/30">
+   121→      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-md">
+   122→        <div className="text-center mb-8">
+   123→          <div className="relative w-20 h-20 mx-auto mb-4">
+   124→            <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-500 opacity-20 blur-xl" />
+   125→            <Image src="/qr-domotik-logo.png" alt="QR Domotik" width={80} height={80} className="relative rounded-2xl drop-shadow-lg" />
+   126→          </div>
+   127→          <h1 className="text-3xl font-bold tracking-tight">QR <span className="text-emerald-600">Domotik</span></h1>
+   128→          <p className="text-muted-foreground mt-1">Votre maison, intelligemment connectée</p>
+   129→        </div>
+   130→        <Card className="border-slate-200 shadow-lg shadow-slate-200/50">
+   131→          <CardHeader className="pb-4">
+   132→            <CardTitle className="flex items-center gap-2 text-lg">
+   133→              {isLogin ? <LogIn className="w-5 h-5" /> : <UserPlus className="w-5 h-5" />}
+   134→              {isLogin ? 'Connexion' : 'Créer un compte'}
+   135→            </CardTitle>
+   136→            <CardDescription>{isLogin ? 'Connectez-vous pour accéder à vos maisons' : 'Créez votre compte et votre première maison'}</CardDescription>
+   137→          </CardHeader>
+   138→          <CardContent>
+   139→            <form onSubmit={handleSubmit} className="space-y-4">
+   140→              <AnimatePresence mode="wait">
+   141→                {!isLogin && (
+   142→                  <motion.div key="name" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.2 }}>
+   143→                    <div className="space-y-2"><Label htmlFor="fullName">Nom complet</Label><Input id="fullName" placeholder="Jean Dupont" value={fullName} onChange={(e) => setFullName(e.target.value)} required={!isLogin} /></div>
+   144→                  </motion.div>
+   145→                )}
+   146→              </AnimatePresence>
+   147→              <div className="space-y-2"><Label htmlFor="email">Email</Label><Input id="email" type="email" placeholder="vous@exemple.com" value={email} onChange={(e) => setEmail(e.target.value)} required /></div>
+   148→              <div className="space-y-2"><Label htmlFor="password">Mot de passe</Label><Input id="password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} /></div>
+   149→              <Button type="submit" className="w-full" disabled={loading}>
+   150→                {loading ? (<span className="flex items-center gap-2"><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />{isLogin ? 'Connexion...' : 'Création...'}</span>) : isLogin ? 'Se connecter' : "S'inscrire"}
+   151→              </Button>
+   152→            </form>
+   153→            <div className="mt-4 text-center">
+   154→              <button type="button" onClick={() => setIsLogin(!isLogin)} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+   155→                {isLogin ? 'Pas encore de compte ?' : 'Déjà un compte ?'}{' '}<span className="font-medium text-emerald-600 hover:underline">{isLogin ? "S'inscrire" : 'Se connecter'}</span>
+   156→              </button>
+   157→            </div>
+   158→          </CardContent>
+   159→        </Card>
+   160→        <p className="text-center text-xs text-muted-foreground mt-6">Plateforme complète QR Domotik</p>
+   161→      </motion.div>
+   162→    </div>
+   163→  );
+   164→}
+   165→
+   166→// ═══════════════════════════════════════════════════════════════════════════
+   167→// ROOM ICON SELECTOR
+   168→// ═══════════════════════════════════════════════════════════════════════════
+   169→function RoomIconSelector({ value, onChange }: { value: string; onChange: (icon: string) => void }) {
+   170→  const icons = ROOM_ICONS.filter(Boolean);
+   171→  return (
+   172→    <div className="grid grid-cols-7 gap-2">
+   173→      {icons.map((name) => {
+   174→        const IconComp = ROOM_ICON_MAP[name] || Square;
+   175→        const isActive = value === name;
+   176→        return (
+   177→          <button key={name} type="button" onClick={() => onChange(name)} title={name}
+   178→            className={`p-2 rounded-lg border transition-all flex items-center justify-center ${isActive ? 'border-emerald-500 bg-emerald-50 text-emerald-700 ring-2 ring-emerald-200' : 'border-slate-200 hover:border-slate-300 text-slate-500 hover:text-slate-700'}`}>
+   179→            <IconComp className="w-5 h-5" />
+   180→          </button>
+   181→        );
+   182→      })}
+   183→    </div>
+   184→  );
+   185→}
+   186→
+   187→// ═══════════════════════════════════════════════════════════════════════════
+   188→// QR TYPE SELECTOR
+   189→// ═══════════════════════════════════════════════════════════════════════════
+   190→function QrTypeSelector({ value, onChange }: { value: string; onChange: (type: string) => void }) {
+   191→  const types: QrType[] = ['wifi', 'link', 'info', 'postit', 'shopping_list', 'doorman', 'medication', 'chores', 'stock_dlc', 'guestbook', 'energy_counter', 'keys_tracker', 'daily_menu'];
+   192→  return (
+   193→    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+   194→      {types.map((type) => {
+   195→        const IconComp = QR_ICON_MAP[type] || Square;
+   196→        const isActive = value === type;
+   197→        return (
+   198→          <button key={type} type="button" onClick={() => onChange(type)}
+   199→            className={`flex items-center gap-2.5 p-3 rounded-lg border text-left transition-all text-sm ${
+   200→              isActive
+   201→                ? 'border-emerald-500 bg-emerald-50 text-emerald-700 ring-2 ring-emerald-200'
+   202→                : 'border-slate-200 hover:border-slate-300 text-slate-600 hover:bg-slate-50'
+   203→            }`}>
+   204→            <IconComp className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-emerald-600' : 'text-slate-400'}`} />
+   205→            <div className="min-w-0">
+   206→              <p className="font-medium text-xs">{QR_TYPE_LABELS[type]}</p>
+   207→              <p className="text-[10px] text-muted-foreground truncate">{QR_TYPE_DESCRIPTIONS[type]}</p>
+   208→            </div>
+   209→          </button>
+   210→        );
+   211→      })}
+   212→    </div>
+   213→  );
+   214→}
+   215→
+   216→// ═══════════════════════════════════════════════════════════════════════════
+   217→// DASHBOARD
+   218→// ═══════════════════════════════════════════════════════════════════════════
+   219→function Dashboard() {
+   220→  const { data: session } = useSession();
+   221→  const store = useHomeStore();
+   222→  const [homeName, setHomeName] = useState('');
+   223→  const [homeAddress, setHomeAddress] = useState('');
+   224→  const [roomName, setRoomName] = useState('');
+   225→  const [roomIcon, setRoomIcon] = useState('Square');
+   226→  const [homeDialogOpen, setHomeDialogOpen] = useState(false);
+   227→  const [roomDialogOpen, setRoomDialogOpen] = useState(false);
+   228→  const [deleteHomeId, setDeleteHomeId] = useState<string | null>(null);
+   229→  const [deleteRoomId, setDeleteRoomId] = useState<string | null>(null);
+   230→  const [deleteQrId, setDeleteQrId] = useState<string | null>(null);
+   231→  const [editingRoom, setEditingRoom] = useState<{ id: string; name: string; icon: string } | null>(null);
+   232→  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+   233→
+   234→  // QR creation state
+   235→  const [qrDialogOpen, setQrDialogOpen] = useState(false);
+   236→  const [qrName, setQrName] = useState('');
+   237→  const [qrType, setQrType] = useState<string>('wifi');
+   238→  const [qrRoomId, setQrRoomId] = useState<string>('');
+   239→  const [qrPin, setQrPin] = useState('');
+   240→
+   241→  // QR preview state
+   242→  const [previewQr, setPreviewQr] = useState<QrCodeInfo | null>(null);
+   243→  const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
+   244→  const [slugCopied, setSlugCopied] = useState(false);
+   245→
+   246→  // QR content editor state
+   247→  const [editQr, setEditQr] = useState<QrCodeInfo | null>(null);
+   248→  const [editDialogOpen, setEditDialogOpen] = useState(false);
+   249→
+   250→  // Activity logs & Stock & Members panel
+   251→  const [showLogs, setShowLogs] = useState(false);
+   252→  const [showStock, setShowStock] = useState(false);
+   253→  const [showMembers, setShowMembers] = useState(false);
+   254→
+   255→  useEffect(() => { store.refreshHomes(); }, []);
+   256→
+   257→  // ─── Home handlers ───
+   258→  const handleCreateHome = async () => {
+   259→    if (!homeName.trim()) return;
+   260→    const res = await fetch('/api/homes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: homeName, address: homeAddress || undefined }) });
+   261→    const data = await res.json();
+   262→    if (data.success) { toast.success(`Maison « ${data.data.name} » créée`); setHomeName(''); setHomeAddress(''); setHomeDialogOpen(false); store.refreshHomes(); }
+   263→    else toast.error(data.error);
+   264→  };
+   265→
+   266→  const handleDeleteHome = async () => {
+   267→    if (!deleteHomeId) return;
+   268→    const res = await fetch(`/api/homes/${deleteHomeId}`, { method: 'DELETE' });
+   269→    const data = await res.json();
+   270→    if (data.success) { toast.success('Maison supprimée'); store.refreshHomes(); }
+   271→    else toast.error(data.error);
+   272→    setDeleteHomeId(null);
+   273→  };
+   274→
+   275→  // ─── Room handlers ───
+   276→  const handleCreateRoom = async () => {
+   277→    if (!roomName.trim() || !store.selectedHomeId) return;
+   278→    const res = await fetch('/api/rooms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ homeId: store.selectedHomeId, name: roomName, icon: roomIcon }) });
+   279→    const data = await res.json();
+   280→    if (data.success) { toast.success(`Pièce « ${data.data.name} » créée`); setRoomName(''); setRoomIcon('Square'); setRoomDialogOpen(false); store.refreshRooms(); store.refreshHomes(); }
+   281→    else toast.error(data.error);
+   282→  };
+   283→
+   284→  const handleUpdateRoom = async () => {
+   285→    if (!editingRoom || !editingRoom.name.trim()) return;
+   286→    const res = await fetch(`/api/rooms/${editingRoom.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: editingRoom.name, icon: editingRoom.icon }) });
+   287→    const data = await res.json();
+   288→    if (data.success) { toast.success('Pièce mise à jour'); setEditingRoom(null); store.refreshRooms(); store.refreshHomes(); }
+   289→    else toast.error(data.error);
+   290→  };
+   291→
+   292→  const handleDeleteRoom = async () => {
+   293→    if (!deleteRoomId) return;
+   294→    const res = await fetch(`/api/rooms/${deleteRoomId}`, { method: 'DELETE' });
+   295→    const data = await res.json();
+   296→    if (data.success) { toast.success('Pièce supprimée'); store.refreshRooms(); store.refreshHomes(); }
+   297→    else toast.error(data.error);
+   298→    setDeleteRoomId(null);
+   299→  };
+   300→
+   301→  // ─── QR Code handlers ───
+   302→  const handleCreateQr = async () => {
+   303→    if (!qrName.trim() || !store.selectedHomeId) return;
+   304→    const res = await fetch('/api/qr-codes', {
+   305→      method: 'POST', headers: { 'Content-Type': 'application/json' },
+   306→      body: JSON.stringify({
+   307→        homeId: store.selectedHomeId,
+   308→        name: qrName,
+   309→        type: qrType,
+   310→        roomId: qrRoomId || null,
+   311→        pinCode: qrPin || undefined,
+   312→        contentJson: DEFAULT_CONTENT[qrType] || '{}',
+   313→      }),
+   314→    });
+   315→    const data = await res.json();
+   316→    if (data.success) {
+   317→      toast.success(`QR code « ${data.data.name} » créé`);
+   318→      setQrName(''); setQrType('wifi'); setQrRoomId(''); setQrPin('');
+   319→      setQrDialogOpen(false);
+   320→      store.refreshQrCodes(); store.refreshHomes(); store.refreshRooms();
+   321→      // Auto-open preview
+   322→      setPreviewQr(data.data);
+   323→      setPreviewDialogOpen(true);
+   324→    } else toast.error(data.error);
+   325→  };
+   326→
+   327→  const handleToggleQr = async (qr: QrCodeInfo) => {
+   328→    const res = await fetch(`/api/qr-codes/${qr.id}`, {
+   329→      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+   330→      body: JSON.stringify({ isActive: !qr.isActive }),
+   331→    });
+   332→    const data = await res.json();
+   333→    if (data.success) { toast.success(qr.isActive ? 'QR code désactivé' : 'QR code activé'); store.refreshQrCodes(); }
+   334→    else toast.error(data.error);
+   335→  };
+   336→
+   337→  const handleDeleteQr = async () => {
+   338→    if (!deleteQrId) return;
+   339→    const res = await fetch(`/api/qr-codes/${deleteQrId}`, { method: 'DELETE' });
+   340→    const data = await res.json();
+   341→    if (data.success) { toast.success('QR code supprimé'); store.refreshQrCodes(); store.refreshHomes(); }
+   342→    else toast.error(data.error);
+   343→    setDeleteQrId(null);
+   344→  };
+   345→
+   346→  const handleCopySlug = useCallback((slug: string) => {
+   347→    navigator.clipboard.writeText(`https://qrdomotik.com/r/${slug}`);
+   348→    setSlugCopied(true);
+   349→    setTimeout(() => setSlugCopied(false), 2000);
+   350→  }, []);
+   351→
+   352→  // ─── Content Editor ───
+   353→  const handleOpenEditor = (qr: QrCodeInfo) => {
+   354→    setEditQr(qr);
+   355→    setEditDialogOpen(true);
+   356→  };
+   357→
+   358→  const handleSaveContent = async (contentJson: string) => {
+   359→    if (!editQr) return;
+   360→    const res = await fetch(`/api/qr-codes/${editQr.id}`, {
+   361→      method: 'PATCH',
+   362→      headers: { 'Content-Type': 'application/json' },
+   363→      body: JSON.stringify({ contentJson }),
+   364→    });
+   365→    const data = await res.json();
+   366→    if (data.success) {
+   367→      toast.success('Contenu mis à jour');
+   368→      store.refreshQrCodes();
+   369→    } else {
+   370→      toast.error(data.error);
+   371→    }
+   372→  };
+   373→
+   374→  // ─── Doorman Toggle ───
+   375→  const handleToggleDoorman = async (qr: QrCodeInfo) => {
+   376→    const res = await fetch(`/api/qr-codes/${qr.id}`, {
+   377→      method: 'PATCH',
+   378→      headers: { 'Content-Type': 'application/json' },
+   379→      body: JSON.stringify({ isPresentMode: !qr.isPresentMode }),
+   380→    });
+   381→    const data = await res.json();
+   382→    if (data.success) {
+   383→      toast.success(qr.isPresentMode ? 'Mode Absent activé' : 'Mode Présent activé');
+   384→      store.refreshQrCodes();
+   385→    } else {
+   386→      toast.error(data.error);
+   387→    }
+   388→  };
+   389→
+   390→  const selectedHome = store.getSelectedHome();
+   391→  const memberRole = selectedHome?.role;
+   392→  const canManage = memberRole === 'owner' || memberRole === 'admin';
+   393→
+   394→  const filteredQrCodes = store.selectedRoomId
+   395→    ? store.qrCodes.filter((q) => q.roomId === store.selectedRoomId)
+   396→    : store.qrCodes;
+   397→
+   398→  return (
+   399→    <div className="min-h-screen flex flex-col bg-slate-50">
+   400→      {/* ─── Top Nav ─── */}
+   401→      <header className="sticky top-0 z-40 bg-white border-b border-slate-200">
+   402→        <div className="flex items-center justify-between h-14 px-4">
+   403→          <div className="flex items-center gap-3">
+   404→            <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+   405→              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+   406→            </Button>
+   407→            <div className="flex items-center gap-2">
+   408→              <Image src="/qr-domotik-logo.png" alt="QR Domotik" width={28} height={28} className="rounded-md" />
+   409→              <span className="font-bold text-lg hidden sm:inline">QR <span className="text-emerald-600">Domotik</span></span>
+   410→            </div>
+   411→          </div>
+   412→          <div className="flex items-center gap-2">
+   413→            <NotificationBell />
+   414→            <Badge variant="secondary" className="hidden sm:flex items-center gap-1.5">
+   415→              <LayoutDashboard className="w-3.5 h-3.5" /> Dashboard
+   416→            </Badge>
+   417→            <span className="hidden md:inline text-sm text-muted-foreground">{session?.user?.name}</span>
+   418→            <Button variant="ghost" size="icon" onClick={() => signOut()} title="Déconnexion"><LogOut className="w-4 h-4" /></Button>
+   419→          </div>
+   420→        </div>
+   421→      </header>
+   422→
+   423→      <div className="flex-1 flex">
+   424→        {/* ─── Sidebar ─── */}
+   425→        <aside className={`fixed inset-y-0 left-0 top-14 z-30 w-72 bg-white border-r border-slate-200 transform transition-transform duration-200 md:static md:transform-none ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+   426→          <div className="flex flex-col h-full">
+   427→            <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+   428→              <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider">Maisons</h2>
+   429→              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { setHomeName(''); setHomeAddress(''); setHomeDialogOpen(true); }}><Plus className="w-4 h-4" /></Button>
+   430→            </div>
+   431→            <ScrollArea className="flex-1 max-h-[40vh]">
+   432→              <div className="p-2 space-y-1">
+   433→                {store.homes.map((home) => (
+   434→                  <button key={home.id} onClick={() => { store.selectHome(home.id); setMobileMenuOpen(false); }}
+   435→                    className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center gap-3 transition-all ${store.selectedHomeId === home.id ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'hover:bg-slate-50 text-slate-700 border border-transparent'}`}>
+   436→                    <Home className={`w-4 h-4 flex-shrink-0 ${store.selectedHomeId === home.id ? 'text-emerald-600' : 'text-slate-400'}`} />
+   437→                    <div className="flex-1 min-w-0">
+   438→                      <p className="text-sm font-medium truncate">{home.name}</p>
+   439→                      <p className="text-xs text-muted-foreground">{home.roomsCount} pièce{home.roomsCount > 1 ? 's' : ''} · {home.qrCodesCount} QR</p>
+   440→                    </div>
+   441→                  </button>
+   442→                ))}
+   443→              </div>
+   444→            </ScrollArea>
+   445→
+   446→            {/* Rooms section in sidebar */}
+   447→            {selectedHome && (
+   448→              <>
+   449→                <div className="p-4 border-t border-slate-100 flex items-center justify-between">
+   450→                  <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider">Pièces</h2>
+   451→                  {canManage && (
+   452→                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { setRoomName(''); setRoomIcon('Square'); setRoomDialogOpen(true); }}><Plus className="w-4 h-4" /></Button>
+   453→                  )}
+   454→                </div>
+   455→                <ScrollArea className="flex-1">
+   456→                  <div className="p-2 space-y-1">
+   457→                    <button onClick={() => store.selectRoom(null)}
+   458→                      className={`w-full text-left px-3 py-2 rounded-lg flex items-center gap-2 text-sm transition-all ${!store.selectedRoomId ? 'bg-slate-100 font-medium text-foreground' : 'text-muted-foreground hover:bg-slate-50'}`}>
+   459→                      <QrCode className="w-4 h-4" /> Toutes les pièces
+   460→                    </button>
+   461→                    {store.rooms.map((room) => {
+   462→                      const IconComp = ROOM_ICON_MAP[room.icon] || Square;
+   463→                      return (
+   464→                        <button key={room.id} onClick={() => store.selectRoom(room.id)}
+   465→                          className={`w-full text-left px-3 py-2 rounded-lg flex items-center gap-2 text-sm transition-all group ${store.selectedRoomId === room.id ? 'bg-slate-100 font-medium text-foreground' : 'text-muted-foreground hover:bg-slate-50'}`}>
+   466→                          <IconComp className="w-4 h-4" /> <span className="truncate flex-1">{room.name}</span>
+   467→                          <span className="text-xs opacity-0 group-hover:opacity-100 transition-opacity">{room._count.qrCodes}</span>
+   468→                        </button>
+   469→                      );
+   470→                    })}
+   471→                  </div>
+   472→                </ScrollArea>
+   473→              </>
+   474→            )}
+   475→          </div>
+   476→        </aside>
+   477→
+   478→        {mobileMenuOpen && <div className="fixed inset-0 top-14 z-20 bg-black/20 md:hidden" onClick={() => setMobileMenuOpen(false)} />}
+   479→
+   480→        {/* ─── Main Content ─── */}
+   481→        <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-auto">
+   482→          <NotificationPermission />
+   483→          {!selectedHome ? (
+   484→            <div className="flex items-center justify-center h-full min-h-[60vh]">
+   485→              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center max-w-sm">
+   486→                <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-emerald-50 flex items-center justify-center"><Home className="w-8 h-8 text-emerald-500" /></div>
+   487→                <h2 className="text-xl font-semibold mb-2">Bienvenue !</h2>
+   488→                <p className="text-muted-foreground mb-6">{store.homes.length === 0 ? 'Créez votre première maison.' : 'Sélectionnez une maison.'}</p>
+   489→                {store.homes.length === 0 && <Button onClick={() => setHomeDialogOpen(true)}><Plus className="w-4 h-4 mr-2" /> Créer ma maison</Button>}
+   490→              </motion.div>
+   491→            </div>
+   492→          ) : (
+   493→            <motion.div key={selectedHome.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
+   494→              {/* Header */}
+   495→              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+   496→                <div>
+   497→                  <h1 className="text-2xl font-bold flex items-center gap-2">
+   498→                    <Home className="w-6 h-6 text-emerald-600" />{selectedHome.name}
+   499→                  </h1>
+   500→                  <div className="flex gap-2 mt-2">
+   501→                    <Badge variant="secondary" className="text-xs">{store.rooms.length} pièce{store.rooms.length > 1 ? 's' : ''}</Badge>
+   502→                    <Badge variant="secondary" className="text-xs">{filteredQrCodes.length} QR code{filteredQrCodes.length > 1 ? 's' : ''}</Badge>
+   503→                  </div>
+   504→                </div>
+   505→                <div className="flex gap-2">
+   506→                  {canManage && (
+   507→                    <>
+   508→                      <Button variant="outline" size="sm" onClick={() => setHomeDialogOpen(true)}><Pencil className="w-4 h-4 mr-1.5" /> Modifier</Button>
+   509→                      <Button variant="destructive" size="sm" onClick={() => setDeleteHomeId(selectedHome.id)}><Trash2 className="w-4 h-4 mr-1.5" /></Button>
+   510→                    </>
+   511→                  )}
+   512→                </div>
+   513→              </div>
+   514→              <Separator className="mb-6" />
+   515→
+   516→              {/* Rooms grid (compact, inline) */}
+   517→              <div className="flex items-center justify-between mb-4">
+   518→                <h2 className="text-lg font-semibold">Pièces</h2>
+   519→                {canManage && <Button size="sm" variant="outline" onClick={() => { setRoomName(''); setRoomIcon('Square'); setRoomDialogOpen(true); }}><Plus className="w-4 h-4 mr-1.5" /> Pièce</Button>}
+   520→              </div>
+   521→              {store.rooms.length > 0 && (
+   522→                <div className="flex gap-2 overflow-x-auto pb-2 mb-6">
+   523→                  {store.rooms.map((room) => {
+   524→                    const IconComp = ROOM_ICON_MAP[room.icon] || Square;
+   525→                    return (
+   526→                      <button key={room.id} onClick={() => store.selectRoom(room.id)}
+   527→                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm whitespace-nowrap transition-all ${store.selectedRoomId === room.id ? 'bg-emerald-50 border-emerald-300 text-emerald-700' : 'bg-white border-slate-200 hover:border-slate-300 text-slate-600'}`}>
+   528→                        <IconComp className="w-4 h-4" /> {room.name}
+   529→                        <Badge variant="secondary" className="text-[10px] ml-1">{room._count.qrCodes}</Badge>
+   530→                      </button>
+   531→                    );
+   532→                  })}
+   533→                </div>
+   534→              )}
+   535→              {store.rooms.length === 0 && (
+   536→                <p className="text-sm text-muted-foreground mb-6">Aucune pièce. Ajoutez-en pour organiser vos QR codes.</p>
+   537→              )}
+   538→
+   539→              {/* QR Codes Section */}
+   540→              <Separator className="mb-6" />
+   541→              <div className="flex items-center justify-between mb-4">
+   542→                <h2 className="text-lg font-semibold flex items-center gap-2">
+   543→                  <QrCode className="w-5 h-5" />
+   544→                  QR Codes
+   545→                  {store.selectedRoomId && <Badge variant="outline" className="ml-1 text-xs">{store.rooms.find(r => r.id === store.selectedRoomId)?.name}</Badge>}
+   546→                </h2>
+   547→                {canManage && (
+   548→                  <Button size="sm" onClick={() => { setQrName(''); setQrType('wifi'); setQrRoomId(store.selectedRoomId || ''); setQrPin(''); setQrDialogOpen(true); }}>
+   549→                    <Plus className="w-4 h-4 mr-1.5" /> Nouveau QR
+   550→                  </Button>
+   551→                )}
+   552→              </div>
+   553→
+   554→              {filteredQrCodes.length === 0 ? (
+   555→                <Card className="border-dashed border-2">
+   556→                  <CardContent className="flex flex-col items-center justify-center py-12">
+   557→                    <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mb-3"><QrCode className="w-7 h-7 text-slate-400" /></div>
+   558→                    <p className="font-medium text-muted-foreground">Aucun QR code</p>
+   559→                    <p className="text-sm text-muted-foreground mb-4">Créez votre premier QR code dynamique</p>
+   560→                    {canManage && <Button size="sm" onClick={() => setQrDialogOpen(true)}><Plus className="w-4 h-4 mr-1.5" /> Créer un QR code</Button>}
+   561→                  </CardContent>
+   562→                </Card>
+   563→              ) : (
+   564→                <motion.div variants={stagger} initial="hidden" animate="visible" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+   565→                  {filteredQrCodes.map((qr) => {
+   566→                    const IconComp = QR_ICON_MAP[qr.type] || Square;
+   567→                    const colorClass = QR_COLOR_MAP[qr.type] || 'bg-slate-50 text-slate-700 border-slate-200';
+   568→                    return (
+   569→                      <motion.div key={qr.id} variants={fadeIn}>
+   570→                        <Card className={`group hover:shadow-md transition-all ${!qr.isActive ? 'opacity-60' : ''}`}>
+   571→                          <CardContent className="p-4">
+   572→                            <div className="flex items-start justify-between mb-3">
+   573→                              <div className="flex items-center gap-3">
+   574→                                <div className={`p-2 rounded-lg border ${colorClass}`}><IconComp className="w-5 h-5" /></div>
+   575→                                <div>
+   576→                                  <p className="font-medium text-sm">{qr.name}</p>
+   577→                                  <p className="text-xs text-muted-foreground">{QR_TYPE_LABELS[qr.type as QrType] || qr.type}</p>
+   578→                                </div>
+   579→                              </div>
+   580→                              <div className="flex items-center gap-1">
+   581→                                {qr.type === 'doorman' && canManage && (
+   582→                                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleToggleDoorman(qr)} title={qr.isPresentMode ? 'Passer en mode Absent' : 'Passer en mode Présent'}>
+   583→                                    {qr.isPresentMode ? <ToggleRight className="w-3.5 h-3.5 text-emerald-600" /> : <ToggleLeft className="w-3.5 h-3.5 text-orange-500" />}
+   584→                                  </Button>
+   585→                                )}
+   586→                                {canManage && (
+   587→                                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenEditor(qr)} title="Modifier le contenu"><Settings className="w-3.5 h-3.5" /></Button>
+   588→                                )}
+   589→                                {canManage && (
+   590→                                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleToggleQr(qr)} title={qr.isActive ? 'Désactiver' : 'Activer'}>
+   591→                                    {qr.isActive ? <Power className="w-3.5 h-3.5 text-emerald-600" /> : <PowerOff className="w-3.5 h-3.5 text-slate-400" />}
+   592→                                  </Button>
+   593→                                )}
+   594→                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setPreviewQr(qr); setPreviewDialogOpen(true); }}><Eye className="w-3.5 h-3.5" /></Button>
+   595→                                {canManage && <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteQrId(qr.id)}><Trash2 className="w-3.5 h-3.5" /></Button>}
+   596→                              </div>
+   597→                            </div>
+   598→                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+   599→                              {qr.room && <Badge variant="outline" className="text-[10px]">{qr.room.name}</Badge>}
+   600→                              <span className="font-mono">qrdomotik.com/r/{qr.publicSlug}</span>
+   601→                            </div>
+   602→                            <div className="flex flex-wrap gap-1 mt-2">
+   603→                              {!qr.isActive && <Badge variant="secondary" className="text-[10px] bg-red-50 text-red-600">Désactivé</Badge>}
+   604→                              {qr.pinCode && <Badge variant="secondary" className="text-[10px]">PIN: ••••</Badge>}
+   605→                              {qr.type === 'doorman' && (
+   606→                                <Badge variant="secondary" className={qr.isPresentMode ? 'text-[10px] bg-emerald-50 text-emerald-700' : 'text-[10px] bg-orange-50 text-orange-700'}>
+   607→                                  {qr.isPresentMode ? 'Présent' : 'Absent'}
+   608→                                </Badge>
+   609→                              )}
+   610→                            </div>
+   611→                          </CardContent>
+   612→                        </Card>
+   613→                      </motion.div>
+   614→                    );
+   615→                  })}
+   616→                </motion.div>
+   617→              )}
+   618→            </motion.div>
+   619→          )}
+   620→
+   621→          {/* Activity Logs & Stock sections */}
+   622→          {selectedHome && (
+   623→            <div className="mt-8 space-y-6">
+   624→              <Separator />
+   625→
+   626→              {/* Quick actions bar */}
+   627→              <div className="flex flex-wrap gap-2">
+   628→                <Button variant="outline" size="sm" onClick={() => setShowMembers(!showMembers)} className={showMembers ? 'bg-violet-50 border-violet-300 text-violet-700' : ''}>
+   629→                  <Users className="w-4 h-4 mr-1.5" /> Membres
+   630→                  {store.members.length > 0 && <Badge variant="secondary" className="ml-1.5 text-[10px]">{store.members.length}</Badge>}
+   631→                </Button>
+   632→                <Button variant="outline" size="sm" onClick={() => setShowLogs(!showLogs)} className={showLogs ? 'bg-slate-100' : ''}>
+   633→                  <Bell className="w-4 h-4 mr-1.5" /> Activité
+   634→                </Button>
+   635→                <Button variant="outline" size="sm" onClick={() => setShowStock(!showStock)} className={showStock ? 'bg-lime-50 border-lime-300 text-lime-700' : ''}>
+   636→                  <PackageSearch className="w-4 h-4 mr-1.5" /> Stock & DLC
+   637→                </Button>
+   638→              </div>
+   639→
+   640→              {/* Activity Logs */}
+   641→              {showLogs && (
+   642→                <Card>
+   643→                  <CardContent className="p-4">
+   644→                    <ActivityLogs homeId={selectedHome.id} />
+   645→                  </CardContent>
+   646→                </Card>
+   647→              )}
+   648→
+   649→              {/* Members */}
+   650→              {showMembers && (
+   651→                <Card className="border-violet-200">
+   652→                  <CardContent className="p-4">
+   653→                    <MembersPanel />
+   654→                  </CardContent>
+   655→                </Card>
+   656→              )}
+   657→
+   658→              {/* Stock & DLC */}
+   659→              {showStock && (
+   660→                <Card className="border-lime-200">
+   661→                  <CardHeader className="pb-3">
+   662→                    <CardTitle className="text-base flex items-center gap-2">
+   663→                      <PackageSearch className="w-5 h-5 text-lime-600" />
+   664→                      Stock & Dates de péremption
+   665→                    </CardTitle>
+   666→                  </CardHeader>
+   667→                  <CardContent>
+   668→                    <StockDlcPanel homeId={selectedHome.id} />
+   669→                  </CardContent>
+   670→                </Card>
+   671→              )}
+   672→            </div>
+   673→          )}
+   674→        </main>
+   675→      </div>
+   676→
+   677→      {/* ═══ DIALOGS ═══ */}
+   678→
+   679→      {/* Create/Edit Home */}
+   680→      <Dialog open={homeDialogOpen} onOpenChange={setHomeDialogOpen}>
+   681→        <DialogContent>
+   682→          <DialogHeader><DialogTitle>{selectedHome ? 'Modifier' : 'Nouvelle'} maison</DialogTitle><DialogDescription>Nom et adresse optionnelle.</DialogDescription></DialogHeader>
+   683→          <div className="space-y-4 py-2">
+   684→            <div className="space-y-2"><Label>Nom</Label><Input placeholder="Maison Famille..." value={homeName} onChange={(e) => setHomeName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleCreateHome()} /></div>
+   685→            <div className="space-y-2"><Label>Adresse</Label><Input placeholder="12 rue de la Paix, Paris" value={homeAddress} onChange={(e) => setHomeAddress(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleCreateHome()} /></div>
+   686→          </div>
+   687→          <DialogFooter><Button variant="outline" onClick={() => setHomeDialogOpen(false)}>Annuler</Button><Button onClick={handleCreateHome}>Créer</Button></DialogFooter>
+   688→        </DialogContent>
+   689→      </Dialog>
+   690→
+   691→      {/* Create Room */}
+   692→      <Dialog open={roomDialogOpen} onOpenChange={setRoomDialogOpen}>
+   693→        <DialogContent>
+   694→          <DialogHeader><DialogTitle>Nouvelle pièce</DialogTitle><DialogDescription>Ajoutez une pièce à votre maison.</DialogDescription></DialogHeader>
+   695→          <div className="space-y-4 py-2">
+   696→            <div className="space-y-2"><Label>Nom</Label><Input placeholder="Cuisine, Chambre, Salon..." value={roomName} onChange={(e) => setRoomName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleCreateRoom()} /></div>
+   697→            <div className="space-y-2"><Label>Icône</Label><RoomIconSelector value={roomIcon} onChange={setRoomIcon} /></div>
+   698→          </div>
+   699→          <DialogFooter><Button variant="outline" onClick={() => setRoomDialogOpen(false)}>Annuler</Button><Button onClick={handleCreateRoom}>Ajouter</Button></DialogFooter>
+   700→        </DialogContent>
+   701→      </Dialog>
+   702→
+   703→      {/* Edit Room */}
+   704→      <Dialog open={!!editingRoom} onOpenChange={(open) => !open && setEditingRoom(null)}>
+   705→        <DialogContent>
+   706→          <DialogHeader><DialogTitle>Modifier la pièce</DialogTitle></DialogHeader>
+   707→          {editingRoom && (<div className="space-y-4 py-2">
+   708→            <div className="space-y-2"><Label>Nom</Label><Input value={editingRoom.name} onChange={(e) => setEditingRoom({ ...editingRoom, name: e.target.value })} /></div>
+   709→            <div className="space-y-2"><Label>Icône</Label><RoomIconSelector value={editingRoom.icon} onChange={(icon) => setEditingRoom({ ...editingRoom, icon })} /></div>
+   710→          </div>)}
+   711→          <DialogFooter><Button variant="outline" onClick={() => setEditingRoom(null)}>Annuler</Button><Button onClick={handleUpdateRoom}>Enregistrer</Button></DialogFooter>
+   712→        </DialogContent>
+   713→      </Dialog>
+   714→
+   715→      {/* Create QR Code */}
+   716→      <Dialog open={qrDialogOpen} onOpenChange={setQrDialogOpen}>
+   717→        <DialogContent className="max-w-lg">
+   718→          <DialogHeader><DialogTitle>Nouveau QR Code</DialogTitle><DialogDescription>Choisissez un type et configurez le contenu dynamique.</DialogDescription></DialogHeader>
+   719→          <div className="space-y-5 py-2">
+   720→            <div className="space-y-2"><Label>Nom du QR code</Label><Input placeholder="Ex: Wi-Fi Cuisine, Portier Entrée..." value={qrName} onChange={(e) => setQrName(e.target.value)} /></div>
+   721→            <div className="space-y-2">
+   722→              <Label>Type de module</Label>
+   723→              <QrTypeSelector value={qrType} onChange={setQrType} />
+   724→            </div>
+   725→            <div className="space-y-2">
+   726→              <Label>Pièce (optionnel)</Label>
+   727→              <select
+   728→                value={qrRoomId}
+   729→                onChange={(e) => setQrRoomId(e.target.value)}
+   730→                className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+   731→              >
+   732→                <option value="">Aucune</option>
+   733→                {store.rooms.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+   734→              </select>
+   735→            </div>
+   736→            <div className="space-y-2">
+   737→              <Label>Code PIN (optionnel — 4 chiffres)</Label>
+   738→              <Input placeholder="Ex: 1234" value={qrPin} onChange={(e) => setQrPin(e.target.value.replace(/\D/g, '').slice(0, 4))} maxLength={4} className="max-w-[120px]" />
+   739→              <p className="text-xs text-muted-foreground">Protège l\'accès au QR code (ex: Portier Virtuel)</p>
+   740→            </div>
+   741→          </div>
+   742→          <DialogFooter><Button variant="outline" onClick={() => setQrDialogOpen(false)}>Annuler</Button><Button onClick={handleCreateQr} disabled={!qrName.trim()}><QrCode className="w-4 h-4 mr-1.5" /> Créer le QR code</Button></DialogFooter>
+   743→        </DialogContent>
+   744→      </Dialog>
+   745→
+   746→      {/* Content Editor Dialog */}
+   747→      <Dialog open={editDialogOpen} onOpenChange={(open) => { setEditDialogOpen(open); if (!open) { setEditQr(null); store.refreshQrCodes(); } }}>
+   748→        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+   749→          <DialogHeader>
+   750→            <DialogTitle>Modifier le contenu — {editQr?.name}</DialogTitle>
+   751→            <DialogDescription>{editQr && (QR_TYPE_LABELS[editQr.type as QrType] || editQr.type)}</DialogDescription>
+   752→          </DialogHeader>
+   753→          {editQr && (
+   754→            <ContentEditor
+   755→              qrId={editQr.id}
+   756→              type={editQr.type as QrType}
+   757→              initialContent={editQr.content?.contentJson || '{}'}
+   758→              onSave={handleSaveContent}
+   759→            />
+   760→          )}
+   761→        </DialogContent>
+   762→      </Dialog>
+   763→
+   764→      {/* QR Preview & Download */}
+   765→      <Dialog open={previewDialogOpen} onOpenChange={setPreviewDialogOpen}>
+   766→        <DialogContent className="max-w-sm">
+   767→          <DialogHeader><DialogTitle>QR Code — {previewQr?.name}</DialogTitle><DialogDescription>Imprimez ce code et collez-le dans votre maison.</DialogDescription></DialogHeader>
+   768→          {previewQr && (
+   769→            <div className="space-y-4 py-2">
+   770→              <div className="flex justify-center">
+   771→                <div className="bg-white p-4 rounded-xl border-2 border-slate-200 shadow-sm">
+   772→                <img src={`/api/qr-codes/generate?slug=${previewQr.publicSlug}&size=280`} alt="QR Code" width={280} height={280} className="block" />
+   773→                </div>
+   774→              </div>
+   775→              <div className="text-center space-y-2">
+   776→                <div className="flex items-center justify-center gap-2">
+   777→                  <code className="text-xs bg-slate-100 px-2 py-1 rounded font-mono">qrdomotik.com/r/{previewQr.publicSlug}</code>
+   778→                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleCopySlug(previewQr.publicSlug)}>
+   779→                    {slugCopied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+   780→                  </Button>
+   781→                </div>
+   782→                <Badge variant={previewQr.isActive ? 'default' : 'secondary'} className={previewQr.isActive ? 'bg-emerald-100 text-emerald-700' : ''}>
+   783→                  {previewQr.isActive ? 'Actif' : 'Désactivé'}
+   784→                </Badge>
+   785→                {previewQr.room && <p className="text-xs text-muted-foreground">Pièce : {previewQr.room.name}</p>}
+   786→              </div>
+   787→              <div className="flex gap-2">
+   788→                <Button className="flex-1" asChild>
+   789→                  <a href={`/api/qr-codes/generate?slug=${previewQr.publicSlug}&size=600`} download={`qr-${previewQr.publicSlug}.png`}>
+   790→                    <Download className="w-4 h-4 mr-1.5" /> Télécharger PNG
+   791→                  </a>
+   792→                </Button>
+   793→                <Button variant="outline" className="flex-1" onClick={() => handleCopySlug(previewQr.publicSlug)}>
+   794→                  <Copy className="w-4 h-4 mr-1.5" /> Copier le lien
+   795→                </Button>
+   796→              </div>
+   797→            </div>
+   798→          )}
+   799→        </DialogContent>
+   800→      </Dialog>
+   801→
+   802→      {/* Delete confirmations */}
+   803→      <AlertDialog open={!!deleteHomeId} onOpenChange={(open) => !open && setDeleteHomeId(null)}>
+   804→        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Supprimer cette maison ?</AlertDialogTitle><AlertDialogDescription>Action irréversible. Tous les QR codes et pièces seront supprimés.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Annuler</AlertDialogCancel><AlertDialogAction onClick={handleDeleteHome} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Supprimer</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+   805→      </AlertDialog>
+   806→      <AlertDialog open={!!deleteRoomId} onOpenChange={(open) => !open && setDeleteRoomId(null)}>
+   807→        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Supprimer cette pièce ?</AlertDialogTitle><AlertDialogDescription>Les QR codes seront dissociés.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Annuler</AlertDialogCancel><AlertDialogAction onClick={handleDeleteRoom} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Supprimer</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+   808→      </AlertDialog>
+   809→      <AlertDialog open={!!deleteQrId} onOpenChange={(open) => !open && setDeleteQrId(null)}>
+   810→        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Supprimer ce QR code ?</AlertDialogTitle><AlertDialogDescription>Le lien public sera définitivement cassé.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Annuler</AlertDialogCancel><AlertDialogAction onClick={handleDeleteQr} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Supprimer</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+   811→      </AlertDialog>
+   812→
+   813→      {/* ─── Footer ─── */}
+   814→      <footer className="border-t border-slate-200 bg-white mt-auto">
+   815→        <div className="container mx-auto px-4 py-4">
+   816→          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground">
+   817→            <div className="flex items-center gap-2">
+   818→              <QrCode className="w-3.5 h-3.5" />
+   819→              <span className="font-semibold text-foreground">QR Domotik</span>
+   820→              <span>— Plateforme complète</span>
+   821→            </div>
+   822→            <div className="flex items-center gap-3">
+   823→              <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> 13 modules</span>
+   824→              <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Multi-utilisateurs</span>
+   825→              <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Rôles & Permissions</span>
+   826→              <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> PWA</span>
+   827→            </div>
+   828→          </div>
+   829→        </div>
+   830→      </footer>
+   831→    </div>
+   832→  );
+   833→}
+   834→
+   835→// ─── Root ────────────────────────────────────────────────────────────────
+   836→export default function HomePage() {
+   837→  const { data: session, status } = useSession();
+   838→  if (status === 'loading') {
+   839→    return (
+   840→      <div className="min-h-screen flex items-center justify-center">
+   841→        <div className="flex flex-col items-center gap-3">
+   842→          <div className="w-8 h-8 border-2 border-emerald-300 border-t-emerald-600 rounded-full animate-spin" />
+   843→          <p className="text-sm text-muted-foreground">Chargement...</p>
+   844→        </div>
+   845→      </div>
+   846→    );
+   847→  }
+   848→  return session ? <Dashboard /> : <AuthForm />;
+   849→}
+   850→

@@ -312,3 +312,65 @@ Stage Summary:
 - Scheduler cron intégré (singleton, auto-start via Proxy, lazy Playwright import)
 - 5 endpoints API fonctionnels (jobs, stats, promos, trigger, scheduler)
 - Architecture : scraping embedded dans Next.js (pas de mini-service séparé) pour compatibilité sandbox
+---
+Task ID: V3-E4toE10
+Agent: Main Agent
+Task: Étapes 4 à 10 V3 — Modules Marketplace Pro complets
+
+Work Log:
+- Lu le worklog, schema.prisma (26 tables), types/index.ts, constants.ts, geo.ts, page.tsx (850 lignes)
+- Créé les répertoires : neighborhood, flash-sale, artisan, booking, emergency, monetization, reviews
+- Créé les répertoires API : merchants, promos, promo-redemptions, flash-sales, professionals, services, service-requests, emergency-qr, subscriptions, transactions, reviews
+
+Étape 4 — Mon Quartier Connecté :
+- Créé /api/merchants/route.ts (GET avec Haversine + bounding box, POST registration)
+- Créé /api/promos/route.ts (GET avec geo filter, smart matching via extractKeywords/matchScore, source filter, flash filter, category filter)
+- Créé /api/promo-redemptions/route.ts (GET list, POST redeem avec doublon check et commission auto)
+- Créé NeighborhoodView.tsx (tabs map/promos/merchants, geo button, category filter, source filter, shopping list matching, coupon validation modal, simulated map with SVG grid, merchant pins, promo detail with discount calculation)
+
+Étape 5 — Ventes Flash :
+- Créé /api/flash-sales/route.ts (GET active flash sales avec temps restant calculé, POST create avec transaction fee, formatTimeRemaining helper)
+- Créé FlashSaleView.tsx (liste live avec countdown 1s, progress bar, create dialog, detail modal, animation pour dernières 5 min)
+
+Étape 6 — Artisan Registration + Pro Dashboard :
+- Créé /api/professionals/route.ts (GET geo filter avec category/urgent/search, POST register, PATCH update/verify docs)
+- Créé /api/services/route.ts (GET list, POST create avec limit MAX_SERVICES_PER_PROFESSIONAL)
+- Créé ArtisanDashboard.tsx (search/filter par catégorie, liste avec rating/distance/badge vérifié, register dialog complet, detail modal avec upload docs)
+
+Étape 7 — Booking System :
+- Créé /api/service-requests/route.ts (GET list by user/pro, POST create with notification, PATCH status update)
+- Créé BookingView.tsx (funnel 4 étapes: search → details → confirm → success, tabs book/history, urgency selector, date/time, request history with status badges)
+
+Étape 8 — Emergency QR Codes :
+- Créé /api/emergency-qr/route.ts (GET pros dispo en urgence par catégorie avec home equipment info, POST create/update config)
+- Créé EmergencyView.tsx (category selector coloré plombier/électricien/serrurier/chauffagiste, equipment info panel, pro cards avec bouton appel, boutons secours SAMU/Pompiers)
+
+Étape 9 — Unified Monétisation :
+- Créé /api/subscriptions/route.ts (GET list, POST create avec auto-transaction et tier update)
+- Créé /api/transactions/route.ts (GET list, POST create)
+- Créé MonetizationDashboard.tsx (3 tabs overview/pricing/transactions, KPI cards revenus/récurrent/abonnements/transactions, commission breakdown, plans grid, subscribe form)
+
+Étape 10 — Review/Rating System :
+- Créé /api/reviews/route.ts (GET avec aggregate avg/distribution, POST avec doublon check et auto-update pro rating)
+- Créé ReviewSystem.tsx (3 tabs all/write/stats, StarRating component interactif, write form avec max length, stats view avec distribution bar chart, reviews list avec avatars)
+
+Intégration page.tsx :
+- Ajouté 7 imports de composants V3
+- Ajouté 7 icônes V3 (MapPin, Siren, Store, DollarSign, CalendarCheck, Wrench, Flame)
+- Ajouté 2 types QR V3 (emergency_service, neighborhood) dans QR_ICON_MAP et QR_COLOR_MAP
+- Ajouté 15 types dans QrTypeSelector
+- Ajouté 7 états de panel V3 (showNeighborhood, showFlashSale, showArtisan, showBooking, showEmergency, showMonetization, showReviews)
+- Ajouté 7 boutons quick action V3 dans la barre d'actions
+- Ajouté 7 sections de panels V3 avec Card colorées
+- Mis à jour footer : 15 modules, Marketplace Pro, Avis & Notes
+- ESLint : 0 erreurs
+- Dev server : compile et sert correctement
+- Browser verified : auth page rend correctement
+
+Stage Summary:
+- 20 nouveaux fichiers créés (7 API routes, 7 composants frontend, 6 répertoires)
+- 7 étapes V3 implémentées (4 à 10) en une seule session
+- 11 endpoints API total pour V3 Étapes 4-10
+- 7 composants React intégrés dans le dashboard
+- 15 types de QR codes supportés (13 existants + 2 V3)
+- Page.tsx passée de 850 à ~960 lignes
