@@ -19,7 +19,10 @@ export type QrType =
   | 'guestbook'
   | 'energy_counter'
   | 'keys_tracker'
-  | 'daily_menu';
+  | 'daily_menu'
+  // V3
+  | 'emergency_service'
+  | 'neighborhood';
 
 export const QR_TYPE_LABELS: Record<QrType, string> = {
   wifi: 'Wi-Fi',
@@ -35,6 +38,8 @@ export const QR_TYPE_LABELS: Record<QrType, string> = {
   energy_counter: 'Compteur Énergie',
   keys_tracker: 'Clés & Objets',
   daily_menu: 'Menu du Jour',
+  emergency_service: 'Urgence Artisan',
+  neighborhood: 'Mon Quartier',
 };
 
 export const QR_TYPE_ICONS: Record<QrType, string> = {
@@ -51,6 +56,8 @@ export const QR_TYPE_ICONS: Record<QrType, string> = {
   energy_counter: 'Zap',
   keys_tracker: 'KeyRound',
   daily_menu: 'UtensilsCrossed',
+  emergency_service: 'Siren',
+  neighborhood: 'MapPin',
 };
 
 export const QR_TYPE_DESCRIPTIONS: Record<QrType, string> = {
@@ -67,6 +74,8 @@ export const QR_TYPE_DESCRIPTIONS: Record<QrType, string> = {
   energy_counter: 'Suivez votre consommation énergétique',
   keys_tracker: 'Retrouvez vos clés et objets importants',
   daily_menu: 'Affichez le menu du jour à la cuisine',
+  emergency_service: 'QR d\'urgence : appelez un artisan en 1 clic',
+  neighborhood: 'Carte des commerces et promos du quartier',
 };
 
 // ─── QR Types par catégorie (pour l'UI) ────────────────────────────────────
@@ -82,11 +91,16 @@ export const QR_TYPE_CATEGORIES: Record<string, { label: string; types: QrType[]
   },
   securite: {
     label: 'Sécurité & Accueil',
-    types: ['doorman'],
+    types: ['doorman', 'emergency_service'],
   },
   famille: {
     label: 'Famille',
     types: ['chores', 'stock_dlc', 'energy_counter'],
+  },
+  // V3
+  quartier: {
+    label: 'Quartier & Services',
+    types: ['neighborhood'],
   },
 };
 
@@ -526,4 +540,288 @@ export interface MembershipContext {
   homeId: string;
   userId: string;
   role: HomeMemberRole;
+}
+
+// █████████████████████████████████████████████████████████████████████████████████
+// ██  V3 — MODULE A : MON QUARTIER CONNECTÉ                               ██
+// █████████████████████████████████████████████████████████████████████████████████
+
+// ─── Merchant Categories ─────────────────────────────────────────────────
+
+export type MerchantCategory =
+  | 'boulangerie'
+  | 'boucherie'
+  | 'pharmacie'
+  | 'epicerie'
+  | 'fleuriste'
+  | 'boulangerie_patisserie'
+  | 'supermarche'
+  | 'pressing'
+  | 'librairie'
+  | 'quincaillerie'
+  | 'bar_cafe'
+  | 'restaurant'
+  | 'salon_coiffure'
+  | 'autre';
+
+export const MERCHANT_CATEGORY_LABELS: Record<MerchantCategory, string> = {
+  boulangerie: 'Boulangerie',
+  boucherie: 'Boucherie / Charcuterie',
+  pharmacie: 'Pharmacie',
+  epicerie: 'Épicerie',
+  fleuriste: 'Fleuriste',
+  boulangerie_patisserie: 'Boulangerie-Pâtisserie',
+  supermarche: 'Supermarché',
+  pressing: 'Pressing',
+  librairie: 'Librairie',
+  quincaillerie: 'Quincaillerie',
+  bar_cafe: 'Bar / Café',
+  restaurant: 'Restaurant',
+  salon_coiffure: 'Salon de Coiffure',
+  autre: 'Autre',
+};
+
+export const MERCHANT_CATEGORY_ICONS: Record<MerchantCategory, string> = {
+  boulangerie: 'Croissant',
+  boucherie: 'Beef',
+  pharmacie: 'Pill',
+  epicerie: 'ShoppingBasket',
+  fleuriste: 'Flower2',
+  boulangerie_patisserie: 'Cake',
+  supermarche: 'ShoppingCart',
+  pressing: 'Shirt',
+  librairie: 'BookOpen',
+  quincaillerie: 'Wrench',
+  bar_cafe: 'Coffee',
+  restaurant: 'UtensilsCrossed',
+  salon_coiffure: 'Scissors',
+  autre: 'Store',
+};
+
+// ─── Promo Types ─────────────────────────────────────────────────────────
+
+export type PromoSource = 'local' | 'scraped';
+
+export type ScrapingSource = 'carrefour' | 'auchan' | 'leclerc';
+
+export const SCRAPING_SOURCE_LABELS: Record<ScrapingSource, string> = {
+  carrefour: 'Carrefour',
+  auchan: 'Auchan',
+  leclerc: 'Leclerc',
+};
+
+// ─── Subscription Tiers ───────────────────────────────────────────────────
+
+export type SubscriptionTier = 'free' | 'premium' | 'featured';
+
+export const SUBSCRIPTION_TIER_LABELS: Record<SubscriptionTier, string> = {
+  free: 'Gratuit',
+  premium: 'Premium',
+  featured: 'En Vedette',
+};
+
+export const SUBSCRIPTION_TIER_COLORS: Record<SubscriptionTier, string> = {
+  free: 'bg-gray-100 text-gray-700',
+  premium: 'bg-amber-100 text-amber-800',
+  featured: 'bg-purple-100 text-purple-800',
+};
+
+// ─── Transaction Types ───────────────────────────────────────────────────
+
+export type TransactionType = 'flash_sale' | 'commission' | 'subscription' | 'redemption';
+
+export const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
+  flash_sale: 'Vente Flash',
+  commission: 'Commission',
+  subscription: 'Abonnement',
+  redemption: 'Coupon',
+};
+
+export type TransactionStatus = 'pending' | 'completed' | 'failed' | 'refunded';
+
+export const TRANSACTION_STATUS_LABELS: Record<TransactionStatus, string> = {
+  pending: 'En attente',
+  completed: 'Complété',
+  failed: 'Échoué',
+  refunded: 'Remboursé',
+};
+
+// █████████████████████████████████████████████████████████████████████████████████
+// ██  V3 — MODULE B : SERVICES À LA PERSONNE                               ██
+// █████████████████████████████████████████████████████████████████████████████████
+
+// ─── Professional Categories ─────────────────────────────────────────────
+
+export type ProfessionalCategory =
+  // Dépannage urgence
+  | 'plumber'
+  | 'electrician'
+  | 'locksmith'
+  | 'heating'
+  // Entretien maison
+  | 'cleaner'
+  | 'gardener'
+  | 'handyman'
+  // Bien-être
+  | 'hairdresser'
+  | 'beautician'
+  | 'masseur'
+  // Assistance
+  | 'tutor'
+  | 'babysitter'
+  | 'pet_sitter';
+
+export const PROFESSIONAL_CATEGORY_GROUP: Record<ProfessionalCategory, { group: string; label: string; icon: string }> = {
+  plumber:       { group: 'depannage',  label: 'Plombier',          icon: 'Droplets' },
+  electrician:   { group: 'depannage',  label: 'Électricien',      icon: 'Zap' },
+  locksmith:     { group: 'depannage',  label: 'Serrurier',        icon: 'KeyRound' },
+  heating:       { group: 'depannage',  label: 'Chauffagiste',     icon: 'Flame' },
+  cleaner:       { group: 'entretien',  label: 'Ménage',           icon: 'Sparkles' },
+  gardener:      { group: 'entretien',  label: 'Jardinage',        icon: 'Flower2' },
+  handyman:      { group: 'entretien',  label: 'Bricolage',        icon: 'Wrench' },
+  hairdresser:   { group: 'bien_etre',  label: 'Coiffure',         icon: 'Scissors' },
+  beautician:    { group: 'bien_etre',  label: 'Esthétique',       icon: 'Sparkles' },
+  masseur:       { group: 'bien_etre',  label: 'Massage',          icon: 'Heart' },
+  tutor:         { group: 'assistance', label: 'Soutien scolaire', icon: 'GraduationCap' },
+  babysitter:    { group: 'assistance', label: 'Babysitting',      icon: 'Baby' },
+  pet_sitter:    { group: 'assistance', label: 'Pet-sitting',      icon: 'PawPrint' },
+};
+
+export const PROFESSIONAL_GROUP_LABELS: Record<string, string> = {
+  depannage: '🛠️ Dépannage Urgence',
+  entretien: '🧼 Entretien Maison',
+  bien_etre: '💅 Bien-être',
+  assistance: '📚 Assistance',
+};
+
+// ─── Service Request Status ─────────────────────────────────────────────
+
+export type ServiceRequestStatus =
+  | 'pending'
+  | 'accepted'
+  | 'in_progress'
+  | 'completed'
+  | 'cancelled'
+  | 'disputed';
+
+export const SERVICE_REQUEST_STATUS_LABELS: Record<ServiceRequestStatus, string> = {
+  pending: 'En attente',
+  accepted: 'Accepté',
+  in_progress: 'En cours',
+  completed: 'Terminé',
+  cancelled: 'Annulé',
+  disputed: 'Litige',
+};
+
+export const SERVICE_REQUEST_STATUS_COLORS: Record<ServiceRequestStatus, string> = {
+  pending: 'bg-amber-100 text-amber-800',
+  accepted: 'bg-sky-100 text-sky-800',
+  in_progress: 'bg-blue-100 text-blue-800',
+  completed: 'bg-emerald-100 text-emerald-800',
+  cancelled: 'bg-gray-100 text-gray-500',
+  disputed: 'bg-red-100 text-red-800',
+};
+
+export type UrgencyLevel = 'normal' | 'urgent' | 'emergency';
+
+export const URGENCY_LEVEL_LABELS: Record<UrgencyLevel, string> = {
+  normal: 'Normal',
+  urgent: 'Urgent',
+  emergency: 'Urgence',
+};
+
+export const URGENCY_LEVEL_COLORS: Record<UrgencyLevel, string> = {
+  normal: 'bg-slate-100 text-slate-700',
+  urgent: 'bg-orange-100 text-orange-800',
+  emergency: 'bg-red-100 text-red-800',
+};
+
+// ─── Emergency QR Categories ──────────────────────────────────────────────
+
+export type EmergencyCategory = 'plumber' | 'electrician' | 'locksmith' | 'heating';
+
+export const EMERGENCY_CATEGORY_LABELS: Record<EmergencyCategory, string> = {
+  plumber: 'Plombier',
+  electrician: 'Électricien',
+  locksmith: 'Serrurier',
+  heating: 'Chauffagiste',
+};
+
+// ─── Service Price Units ──────────────────────────────────────────────────
+
+export type PriceUnit = 'hour' | 'flat_rate' | 'estimate';
+
+export const PRICE_UNIT_LABELS: Record<PriceUnit, string> = {
+  hour: 'De l\'heure',
+  flat_rate: 'Forfait',
+  estimate: 'Sur devis',
+};
+
+// ─── Scraping Job Status ──────────────────────────────────────────────────
+
+export type ScrapingJobStatus = 'running' | 'success' | 'failed';
+
+export const SCRAPING_JOB_STATUS_LABELS: Record<ScrapingJobStatus, string> = {
+  running: 'En cours',
+  success: 'Réussi',
+  failed: 'Échoué',
+};
+
+// ─── V3 Activity & Notification Types ─────────────────────────────────────
+
+// Ajout aux types existants pour V3
+export type V3ActivityActionType =
+  | 'promo_redeemed'
+  | 'flash_sale_launched'
+  | 'service_requested'
+  | 'service_completed'
+  | 'review_left'
+  | 'merchant_registered'
+  | 'professional_registered'
+  | 'subscription_upgraded';
+
+export type V3NotificationType =
+  | 'promo_nearby'
+  | 'flash_sale_alert'
+  | 'service_accepted'
+  | 'service_update'
+  | 'review_requested'
+  | 'subscription_expiring';
+
+// ─── V3 Content JSON Schemas ─────────────────────────────────────────────
+
+export interface EmergencyServiceContent {
+  emergencyCategory: EmergencyCategory;
+  equipmentInfo?: Record<string, string>;
+}
+
+export interface NeighborhoodContent {
+  centerLatitude?: number;
+  centerLongitude?: number;
+  defaultRadiusKm?: number;
+}
+
+// ─── Subscription Plans ───────────────────────────────────────────────────
+
+export type SubscriberType = 'merchant' | 'professional';
+export type SubscriptionPlan = 'premium' | 'featured';
+
+export interface SubscriptionPlanInfo {
+  plan: SubscriptionPlan;
+  subscriberType: SubscriberType;
+  amount: number;
+  currency: string;
+  label: string;
+  features: string[];
+}
+
+// ─── Commission Config ────────────────────────────────────────────────────
+
+export interface CommissionConfig {
+  type: 'flash_sale' | 'redemption' | 'service_match';
+  label: string;
+  minAmount: number;
+  maxAmount: number;
+  defaultAmount: number;
+  description: string;
 }

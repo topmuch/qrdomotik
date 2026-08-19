@@ -204,3 +204,57 @@ Stage Summary:
 - Notification permission request banner with delayed display
 - Browser-verified: manifest loaded, theme-color #059669, SW active, all assets 200
 - ESLint passes clean with 0 errors
+
+---
+Task ID: V3-E1
+Agent: Main Agent
+Task: Étape 1 V3 — Schéma DB complet + Types + Utilitaires géolocalisation
+
+Work Log:
+- Analysé les 11 nouvelles tables V3 et planifié les adaptations SQLite (PostGIS → lat/lng + Haversine, JSONB → String JSON, TEXT[] → String JSON array, DECIMAL → Float, CHECK → validation applicative)
+- Étendu prisma/schema.prisma de 15 à 26 tables :
+  - Home: +latitude, +longitude (géolocalisation)
+  - User: +phone, +merchantProfile, +professionalProfile, +writtenReviews, +promoRedemptions, +transactions (payer/receiver)
+  - PushSubscription: +homeId (nullable pour V3)
+  - Notification: homeId nullable (notifications pro sans home), +home relation
+  - QrCode: +emergencyConfig, +serviceRequests relations
+  - NOUVEAU: Merchant (commerçants locaux avec lat/lng, opening_hours_json, subscription_tier)
+  - NOUVEAU: Promo (promotions locales + scrapées, keywords_json, flash_sale fields)
+  - NOUVEAU: PromoRedemption (coupons utilisés avec commission)
+  - NOUVEAU: ScrapingJob (logs des tâches Playwright)
+  - NOUVEAU: Professional (artisans avec lat/lng, service_radius_km, verification_docs_json)
+  - NOUVEAU: Service (catalogue de services par pro)
+  - NOUVEAU: ServiceRequest (demandes de réservation avec urgency_level, photos_json)
+  - NOUVEAU: Review (avis 1-5 étoiles, unique par service_request)
+  - NOUVEAU: EmergencyQrCode (config QR urgence avec equipment_info_json)
+  - NOUVEAU: Subscription (abonnements pros/commerçants avec stripe_subscription_id)
+  - NOUVEAU: Transaction (micro-paiements: flash_sale, commission, subscription, redemption)
+- Corrigé 3 erreurs de relations Prisma (one-to-one, opposite missing)
+- db:push --force-reset réussi, 26 tables créées
+- Étendu src/types/index.ts avec ~280 lignes V3 :
+  - QrType: +emergency_service, +neighborhood (15 types total)
+  - QR_TYPE_CATEGORIES: +categorie 'quartier', emergency_service dans 'securite'
+  - MerchantCategory (14 catégories), labels et icons
+  - ProfessionalCategory (13 métiers en 4 groupes), labels, icons, group_labels
+  - SubscriptionTier, TransactionType, TransactionStatus
+  - ServiceRequestStatus (6 états), UrgencyLevel, PriceUnit
+  - EmergencyCategory, ScrapingSource/Status
+  - V3ActivityActionType, V3NotificationType
+  - EmergencyServiceContent, NeighborhoodContent interfaces
+  - SubscriptionPlanInfo, CommissionConfig interfaces
+- Créé src/lib/geo.ts : haversineDistance, filterByRadius, formatDistance, boundingBox, extractKeywords, matchScore
+- Étendu src/lib/constants.ts avec V3 :
+  - DEFAULT_MAP_CENTER (Dakar), search/flash radii
+  - SCRAPING_CRON_HOUR, SCRAPING_MAX_RETRIES, SCRAPING_USER_AGENT
+  - PRICING: 6 plans (merchant premium/featured, pro premium/featured, flash_sale, verification badge)
+  - COMMISSIONS: 6 configs (flash_sale, 4 service_match par catégorie, redemption)
+  - Limites V3, FLASH_SALE_DURATIONS, EMERGENCY_CATEGORIES
+- ESLint: 0 erreurs
+- Prisma generate: succès
+
+Stage Summary:
+- 26 tables Prisma (V1: 9, V2: 6, V3: 11)
+- Remplacement PostGIS par Haversine applicatif (src/lib/geo.ts)
+- Système de types V3 complet (~280 lignes, 30+ types exportés)
+- Configuration monétisation avec prix et commissions
+- DB pushé et client régénéré avec succès
