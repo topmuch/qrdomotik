@@ -111,3 +111,56 @@ Stage Summary:
 - 9 modules rendus dynamiquement selon le type du QR
 - Flux PIN : gate → verify API → déverrouillage → module affiché
 - Prochaine étape : Étape 5 — Portier Virtuel (présent/absent) + Alertes DLC + finalisation
+
+---
+Task ID: 5
+Agent: Main Architect
+Task: Étape 5 — Portier Virtuel, Contenu dynamique, Stock & DLC, Journal d'activité
+
+Work Log:
+- Créé /api/products/route.ts (GET liste par homeId, POST création produit)
+- Créé /api/products/[id]/route.ts (GET détail+instances, PATCH produit+instances, DELETE)
+  - Actions d'instance : add_instance, update_instance, delete_instance, consume_instance
+  - Mise à jour automatique du currentStock après chaque action
+- Créé /api/activity-logs/route.ts (GET avec filtres homeId/qrCodeId, labels traduits)
+- Créé src/components/dashboard/ContentEditor.tsx
+  - 9 éditeurs typés : Wifi, Link, Info, Postit, ShoppingList, Doorman, Medication, Chores, StockDlc
+  - WifiEditor : SSID, password, sécurité (WPA/WPA2/WPA3/WEP/OPEN)
+  - LinkEditor : titre, URL, description
+  - InfoEditor : titre, corps de texte
+  - PostitEditor : message + sélecteur couleur (5 couleurs)
+  - ShoppingListEditor : ajout/suppression d'articles dynamiques
+  - DoormanEditor : message accueil, instructions prédéfinies, toggles message/sonnette
+  - MedicationEditor : liste médicaments (nom/dosage/heure), message rappel
+  - ChoresEditor : liste tâches avec points, message récompense
+  - StockDlcEditor : redirection vers panneau Stock
+  - StockDlcPanel : CRUD produits, ajout instances avec date péremption, badges couleur DLC
+  - Détection automatique DLC : J+3 orange, J+1 rouge, J+0 expiré
+- Créé src/components/dashboard/ActivityLogs.tsx
+  - Journal temps réel avec traduction des types d'actions (emoji + label)
+  - Filtrage par QR code, refresh manuel, timestamps relatifs
+- Intégré dans Dashboard (page.tsx) :
+  - Bouton ⚙️ "Modifier le contenu" sur chaque carte QR → Dialog ContentEditor
+  - Bouton toggle Présent/Absent sur cartes Portier (ToggleRight/ToggleLeft)
+  - Badge "Présent"/"Absent" vert/orange sur cartes Portier
+  - Boutons "Activité" et "Stock & DLC" en bas du dashboard
+  - Panel ActivityLogs (journal d'activité)
+  - Panel StockDlcPanel (gestion stock avec catégories, dates, alertes DLC)
+- Mis à jour footer : "Plateforme complète" + badges (9 modules, Contenu dynamique, Stock & DLC, Journal)
+- Nettoyé labels de version (Étape 3 → Dashboard, textes de footer)
+- Vérifié Agent Browser :
+  - Dashboard : 2 QR cards avec tous les boutons (settings, doorman toggle, power, preview, delete)
+  - Portier public page : badge "Présent", instructions, boutons message/sonner
+  - Stock panel : titre, catégories, formulaire ajout, état vide
+  - Activity panel : journal avec état vide
+  - Footer sticky mis à jour
+- Lint 0 erreurs
+
+Stage Summary:
+- 3 endpoints API produits (GET, POST, PATCH/DELETE par id)
+- 1 endpoint API activity-logs (GET avec filtres)
+- ContentEditor : 9 éditeurs de contenu typés dans un dialog
+- StockDlcPanel : CRUD produits + instances + alertes DLC (couleurs par date)
+- ActivityLogs : journal d'activité avec labels traduits
+- Toggle Présent/Absent sur Portier Virtuel
+- Plateforme QR Domotik COMPLETE — 5 étapes terminées

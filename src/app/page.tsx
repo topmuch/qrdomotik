@@ -30,10 +30,12 @@ import {
   Trash2, Pencil, Menu, X, LayoutDashboard, Square,
   Wifi, ExternalLink, BookOpen, StickyNote, ShoppingCart,
   Pill, Star, Package, Download, Eye, Power, PowerOff,
-  Copy, Check,
+  Copy, Check, Bell, Settings, PackageSearch, ToggleLeft, ToggleRight,
 } from 'lucide-react';
+import { ContentEditor, StockDlcPanel } from '@/components/dashboard/ContentEditor';
+import { ActivityLogs } from '@/components/dashboard/ActivityLogs';
 import { ROOM_ICONS } from '@/lib/constants';
-import { QR_TYPE_LABELS, QR_TYPE_DESCRIPTIONS, type QrType } from '@/types';
+import { QR_TYPE_LABELS, QR_TYPE_DESCRIPTIONS, QR_TYPE_ICONS, type QrType } from '@/types';
 
 // ─── Icon Maps ──────────────────────────────────────────────────────────
 const ROOM_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -146,7 +148,7 @@ function AuthForm() {
             </div>
           </CardContent>
         </Card>
-        <p className="text-center text-xs text-muted-foreground mt-6">Étape 3 — Auth, Dashboard & QR Codes</p>
+        <p className="text-center text-xs text-muted-foreground mt-6">Plateforme complète QR Domotik</p>
       </motion.div>
     </div>
   );
@@ -231,6 +233,14 @@ function Dashboard() {
   const [previewQr, setPreviewQr] = useState<QrCodeInfo | null>(null);
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
   const [slugCopied, setSlugCopied] = useState(false);
+
+  // QR content editor state
+  const [editQr, setEditQr] = useState<QrCodeInfo | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+
+  // Activity logs & Stock panel
+  const [showLogs, setShowLogs] = useState(false);
+  const [showStock, setShowStock] = useState(false);
 
   useEffect(() => { store.refreshHomes(); }, []);
 
@@ -329,6 +339,44 @@ function Dashboard() {
     setTimeout(() => setSlugCopied(false), 2000);
   }, []);
 
+  // ─── Content Editor ───
+  const handleOpenEditor = (qr: QrCodeInfo) => {
+    setEditQr(qr);
+    setEditDialogOpen(true);
+  };
+
+  const handleSaveContent = async (contentJson: string) => {
+    if (!editQr) return;
+    const res = await fetch(`/api/qr-codes/${editQr.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contentJson }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      toast.success('Contenu mis à jour');
+      store.refreshQrCodes();
+    } else {
+      toast.error(data.error);
+    }
+  };
+
+  // ─── Doorman Toggle ───
+  const handleToggleDoorman = async (qr: QrCodeInfo) => {
+    const res = await fetch(`/api/qr-codes/${qr.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ isPresentMode: !qr.isPresentMode }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      toast.success(qr.isPresentMode ? 'Mode Absent activé' : 'Mode Présent activé');
+      store.refreshQrCodes();
+    } else {
+      toast.error(data.error);
+    }
+  };
+
   const selectedHome = store.getSelectedHome();
   const memberRole = selectedHome?.role;
   const canManage = memberRole === 'owner' || memberRole === 'admin';
@@ -353,7 +401,7 @@ function Dashboard() {
           </div>
           <div className="flex items-center gap-2">
             <Badge variant="secondary" className="hidden sm:flex items-center gap-1.5">
-              <LayoutDashboard className="w-3.5 h-3.5" /> Étape 3
+              <LayoutDashboard className="w-3.5 h-3.5" /> Dashboard
             </Badge>
             <span className="hidden md:inline text-sm text-muted-foreground">{session?.user?.name}</span>
             <Button variant="ghost" size="icon" onClick={() => signOut()} title="Déconnexion"><LogOut className="w-4 h-4" /></Button>
@@ -518,6 +566,14 @@ function Dashboard() {
                                 </div>
                               </div>
                               <div className="flex items-center gap-1">
+                                {qr.type === 'doorman' && canManage && (
+                                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleToggleDoorman(qr)} title={qr.isPresentMode ? 'Passer en mode Absent' : 'Passer en mode Présent'}>
+                                    {qr.isPresentMode ? <ToggleRight className="w-3.5 h-3.5 text-emerald-600" /> : <ToggleLeft className="w-3.5 h-3.5 text-orange-500" />}
+                                  </Button>
+                                )}
+                                {canManage && (
+                                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenEditor(qr)} title="Modifier le contenu"><Settings className="w-3.5 h-3.5" /></Button>
+                                )}
                                 {canManage && (
                                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleToggleQr(qr)} title={qr.isActive ? 'Désactiver' : 'Activer'}>
                                     {qr.isActive ? <Power className="w-3.5 h-3.5 text-emerald-600" /> : <PowerOff className="w-3.5 h-3.5 text-slate-400" />}
@@ -531,8 +587,15 @@ function Dashboard() {
                               {qr.room && <Badge variant="outline" className="text-[10px]">{qr.room.name}</Badge>}
                               <span className="font-mono">qrdomotik.com/r/{qr.publicSlug}</span>
                             </div>
-                            {!qr.isActive && <Badge variant="secondary" className="text-[10px] mt-2 bg-red-50 text-red-600">Désactivé</Badge>}
-                            {qr.pinCode && <Badge variant="secondary" className="text-[10px] mt-2">PIN: ••••</Badge>}
+                            <div className="flex flex-wrap gap-1 mt-2">
+                              {!qr.isActive && <Badge variant="secondary" className="text-[10px] bg-red-50 text-red-600">Désactivé</Badge>}
+                              {qr.pinCode && <Badge variant="secondary" className="text-[10px]">PIN: ••••</Badge>}
+                              {qr.type === 'doorman' && (
+                                <Badge variant="secondary" className={qr.isPresentMode ? 'text-[10px] bg-emerald-50 text-emerald-700' : 'text-[10px] bg-orange-50 text-orange-700'}>
+                                  {qr.isPresentMode ? 'Présent' : 'Absent'}
+                                </Badge>
+                              )}
+                            </div>
                           </CardContent>
                         </Card>
                       </motion.div>
@@ -541,6 +604,47 @@ function Dashboard() {
                 </motion.div>
               )}
             </motion.div>
+          )}
+
+          {/* Activity Logs & Stock sections */}
+          {selectedHome && (
+            <div className="mt-8 space-y-6">
+              <Separator />
+
+              {/* Quick actions bar */}
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => setShowLogs(!showLogs)} className={showLogs ? 'bg-slate-100' : ''}>
+                  <Bell className="w-4 h-4 mr-1.5" /> Activité
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setShowStock(!showStock)} className={showStock ? 'bg-lime-50 border-lime-300 text-lime-700' : ''}>
+                  <PackageSearch className="w-4 h-4 mr-1.5" /> Stock & DLC
+                </Button>
+              </div>
+
+              {/* Activity Logs */}
+              {showLogs && (
+                <Card>
+                  <CardContent className="p-4">
+                    <ActivityLogs homeId={selectedHome.id} />
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Stock & DLC */}
+              {showStock && (
+                <Card className="border-lime-200">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <PackageSearch className="w-5 h-5 text-lime-600" />
+                      Stock & Dates de péremption
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <StockDlcPanel homeId={selectedHome.id} />
+                  </CardContent>
+                </Card>
+              )}
+            </div>
           )}
         </main>
       </div>
@@ -614,6 +718,24 @@ function Dashboard() {
         </DialogContent>
       </Dialog>
 
+      {/* Content Editor Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={(open) => { setEditDialogOpen(open); if (!open) { setEditQr(null); store.refreshQrCodes(); } }}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Modifier le contenu — {editQr?.name}</DialogTitle>
+            <DialogDescription>{editQr && (QR_TYPE_LABELS[editQr.type as QrType] || editQr.type)}</DialogDescription>
+          </DialogHeader>
+          {editQr && (
+            <ContentEditor
+              qrId={editQr.id}
+              type={editQr.type as QrType}
+              initialContent={editQr.content?.contentJson || '{}'}
+              onSave={handleSaveContent}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* QR Preview & Download */}
       <Dialog open={previewDialogOpen} onOpenChange={setPreviewDialogOpen}>
         <DialogContent className="max-w-sm">
@@ -670,12 +792,13 @@ function Dashboard() {
             <div className="flex items-center gap-2">
               <QrCode className="w-3.5 h-3.5" />
               <span className="font-semibold text-foreground">QR Domotik</span>
-              <span>— Étape 3 : QR Codes</span>
+              <span>— Plateforme complète</span>
             </div>
             <div className="flex items-center gap-3">
-              <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> CRUD QR</span>
-              <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Génération PNG</span>
               <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> 9 modules</span>
+              <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Contenu dynamique</span>
+              <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Stock & DLC</span>
+              <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Journal d'activité</span>
             </div>
           </div>
         </div>

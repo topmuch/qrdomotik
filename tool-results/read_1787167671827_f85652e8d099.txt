@@ -1,0 +1,504 @@
+   200→   200→      })}
+   201→   201→    </div>
+   202→   202→  );
+   203→   203→}
+   204→   204→
+   205→   205→// ═══════════════════════════════════════════════════════════════════════════
+   206→   206→// DASHBOARD
+   207→   207→// ═══════════════════════════════════════════════════════════════════════════
+   208→   208→function Dashboard() {
+   209→   209→  const { data: session } = useSession();
+   210→   210→  const store = useHomeStore();
+   211→   211→  const [homeName, setHomeName] = useState('');
+   212→   212→  const [homeAddress, setHomeAddress] = useState('');
+   213→   213→  const [roomName, setRoomName] = useState('');
+   214→   214→  const [roomIcon, setRoomIcon] = useState('Square');
+   215→   215→  const [homeDialogOpen, setHomeDialogOpen] = useState(false);
+   216→   216→  const [roomDialogOpen, setRoomDialogOpen] = useState(false);
+   217→   217→  const [deleteHomeId, setDeleteHomeId] = useState<string | null>(null);
+   218→   218→  const [deleteRoomId, setDeleteRoomId] = useState<string | null>(null);
+   219→   219→  const [deleteQrId, setDeleteQrId] = useState<string | null>(null);
+   220→   220→  const [editingRoom, setEditingRoom] = useState<{ id: string; name: string; icon: string } | null>(null);
+   221→   221→  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+   222→   222→
+   223→   223→  // QR creation state
+   224→   224→  const [qrDialogOpen, setQrDialogOpen] = useState(false);
+   225→   225→  const [qrName, setQrName] = useState('');
+   226→   226→  const [qrType, setQrType] = useState<string>('wifi');
+   227→   227→  const [qrRoomId, setQrRoomId] = useState<string>('');
+   228→   228→  const [qrPin, setQrPin] = useState('');
+   229→   229→
+   230→   230→  // QR preview state
+   231→   231→  const [previewQr, setPreviewQr] = useState<QrCodeInfo | null>(null);
+   232→   232→  const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
+   233→   233→  const [slugCopied, setSlugCopied] = useState(false);
+   234→   234→
+   235→   235→  useEffect(() => { store.refreshHomes(); }, []);
+   236→   236→
+   237→   237→  // ─── Home handlers ───
+   238→   238→  const handleCreateHome = async () => {
+   239→   239→    if (!homeName.trim()) return;
+   240→   240→    const res = await fetch('/api/homes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: homeName, address: homeAddress || undefined }) });
+   241→   241→    const data = await res.json();
+   242→   242→    if (data.success) { toast.success(`Maison « ${data.data.name} » créée`); setHomeName(''); setHomeAddress(''); setHomeDialogOpen(false); store.refreshHomes(); }
+   243→   243→    else toast.error(data.error);
+   244→   244→  };
+   245→   245→
+   246→   246→  const handleDeleteHome = async () => {
+   247→   247→    if (!deleteHomeId) return;
+   248→   248→    const res = await fetch(`/api/homes/${deleteHomeId}`, { method: 'DELETE' });
+   249→   249→    const data = await res.json();
+   250→   250→    if (data.success) { toast.success('Maison supprimée'); store.refreshHomes(); }
+   251→   251→    else toast.error(data.error);
+   252→   252→    setDeleteHomeId(null);
+   253→   253→  };
+   254→   254→
+   255→   255→  // ─── Room handlers ───
+   256→   256→  const handleCreateRoom = async () => {
+   257→   257→    if (!roomName.trim() || !store.selectedHomeId) return;
+   258→   258→    const res = await fetch('/api/rooms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ homeId: store.selectedHomeId, name: roomName, icon: roomIcon }) });
+   259→   259→    const data = await res.json();
+   260→   260→    if (data.success) { toast.success(`Pièce « ${data.data.name} » créée`); setRoomName(''); setRoomIcon('Square'); setRoomDialogOpen(false); store.refreshRooms(); store.refreshHomes(); }
+   261→   261→    else toast.error(data.error);
+   262→   262→  };
+   263→   263→
+   264→   264→  const handleUpdateRoom = async () => {
+   265→   265→    if (!editingRoom || !editingRoom.name.trim()) return;
+   266→   266→    const res = await fetch(`/api/rooms/${editingRoom.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: editingRoom.name, icon: editingRoom.icon }) });
+   267→   267→    const data = await res.json();
+   268→   268→    if (data.success) { toast.success('Pièce mise à jour'); setEditingRoom(null); store.refreshRooms(); store.refreshHomes(); }
+   269→   269→    else toast.error(data.error);
+   270→   270→  };
+   271→   271→
+   272→   272→  const handleDeleteRoom = async () => {
+   273→   273→    if (!deleteRoomId) return;
+   274→   274→    const res = await fetch(`/api/rooms/${deleteRoomId}`, { method: 'DELETE' });
+   275→   275→    const data = await res.json();
+   276→   276→    if (data.success) { toast.success('Pièce supprimée'); store.refreshRooms(); store.refreshHomes(); }
+   277→   277→    else toast.error(data.error);
+   278→   278→    setDeleteRoomId(null);
+   279→   279→  };
+   280→   280→
+   281→   281→  // ─── QR Code handlers ───
+   282→   282→  const handleCreateQr = async () => {
+   283→   283→    if (!qrName.trim() || !store.selectedHomeId) return;
+   284→   284→    const res = await fetch('/api/qr-codes', {
+   285→   285→      method: 'POST', headers: { 'Content-Type': 'application/json' },
+   286→   286→      body: JSON.stringify({
+   287→   287→        homeId: store.selectedHomeId,
+   288→   288→        name: qrName,
+   289→   289→        type: qrType,
+   290→   290→        roomId: qrRoomId || null,
+   291→   291→        pinCode: qrPin || undefined,
+   292→   292→        contentJson: DEFAULT_CONTENT[qrType] || '{}',
+   293→   293→      }),
+   294→   294→    });
+   295→   295→    const data = await res.json();
+   296→   296→    if (data.success) {
+   297→   297→      toast.success(`QR code « ${data.data.name} » créé`);
+   298→   298→      setQrName(''); setQrType('wifi'); setQrRoomId(''); setQrPin('');
+   299→   299→      setQrDialogOpen(false);
+   300→   300→      store.refreshQrCodes(); store.refreshHomes(); store.refreshRooms();
+   301→   301→      // Auto-open preview
+   302→   302→      setPreviewQr(data.data);
+   303→   303→      setPreviewDialogOpen(true);
+   304→   304→    } else toast.error(data.error);
+   305→   305→  };
+   306→   306→
+   307→   307→  const handleToggleQr = async (qr: QrCodeInfo) => {
+   308→   308→    const res = await fetch(`/api/qr-codes/${qr.id}`, {
+   309→   309→      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+   310→   310→      body: JSON.stringify({ isActive: !qr.isActive }),
+   311→   311→    });
+   312→   312→    const data = await res.json();
+   313→   313→    if (data.success) { toast.success(qr.isActive ? 'QR code désactivé' : 'QR code activé'); store.refreshQrCodes(); }
+   314→   314→    else toast.error(data.error);
+   315→   315→  };
+   316→   316→
+   317→   317→  const handleDeleteQr = async () => {
+   318→   318→    if (!deleteQrId) return;
+   319→   319→    const res = await fetch(`/api/qr-codes/${deleteQrId}`, { method: 'DELETE' });
+   320→   320→    const data = await res.json();
+   321→   321→    if (data.success) { toast.success('QR code supprimé'); store.refreshQrCodes(); store.refreshHomes(); }
+   322→   322→    else toast.error(data.error);
+   323→   323→    setDeleteQrId(null);
+   324→   324→  };
+   325→   325→
+   326→   326→  const handleCopySlug = useCallback((slug: string) => {
+   327→   327→    navigator.clipboard.writeText(`https://qrdomotik.com/r/${slug}`);
+   328→   328→    setSlugCopied(true);
+   329→   329→    setTimeout(() => setSlugCopied(false), 2000);
+   330→   330→  }, []);
+   331→   331→
+   332→   332→  const selectedHome = store.getSelectedHome();
+   333→   333→  const memberRole = selectedHome?.role;
+   334→   334→  const canManage = memberRole === 'owner' || memberRole === 'admin';
+   335→   335→
+   336→   336→  const filteredQrCodes = store.selectedRoomId
+   337→   337→    ? store.qrCodes.filter((q) => q.roomId === store.selectedRoomId)
+   338→   338→    : store.qrCodes;
+   339→   339→
+   340→   340→  return (
+   341→   341→    <div className="min-h-screen flex flex-col bg-slate-50">
+   342→   342→      {/* ─── Top Nav ─── */}
+   343→   343→      <header className="sticky top-0 z-40 bg-white border-b border-slate-200">
+   344→   344→        <div className="flex items-center justify-between h-14 px-4">
+   345→   345→          <div className="flex items-center gap-3">
+   346→   346→            <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+   347→   347→              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+   348→   348→            </Button>
+   349→   349→            <div className="flex items-center gap-2">
+   350→   350→              <Image src="/qr-domotik-logo.png" alt="QR Domotik" width={28} height={28} className="rounded-md" />
+   351→   351→              <span className="font-bold text-lg hidden sm:inline">QR <span className="text-emerald-600">Domotik</span></span>
+   352→   352→            </div>
+   353→   353→          </div>
+   354→   354→          <div className="flex items-center gap-2">
+   355→   355→            <Badge variant="secondary" className="hidden sm:flex items-center gap-1.5">
+   356→   356→              <LayoutDashboard className="w-3.5 h-3.5" /> Étape 3
+   357→   357→            </Badge>
+   358→   358→            <span className="hidden md:inline text-sm text-muted-foreground">{session?.user?.name}</span>
+   359→   359→            <Button variant="ghost" size="icon" onClick={() => signOut()} title="Déconnexion"><LogOut className="w-4 h-4" /></Button>
+   360→   360→          </div>
+   361→   361→        </div>
+   362→   362→      </header>
+   363→   363→
+   364→   364→      <div className="flex-1 flex">
+   365→   365→        {/* ─── Sidebar ─── */}
+   366→   366→        <aside className={`fixed inset-y-0 left-0 top-14 z-30 w-72 bg-white border-r border-slate-200 transform transition-transform duration-200 md:static md:transform-none ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+   367→   367→          <div className="flex flex-col h-full">
+   368→   368→            <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+   369→   369→              <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider">Maisons</h2>
+   370→   370→              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { setHomeName(''); setHomeAddress(''); setHomeDialogOpen(true); }}><Plus className="w-4 h-4" /></Button>
+   371→   371→            </div>
+   372→   372→            <ScrollArea className="flex-1 max-h-[40vh]">
+   373→   373→              <div className="p-2 space-y-1">
+   374→   374→                {store.homes.map((home) => (
+   375→   375→                  <button key={home.id} onClick={() => { store.selectHome(home.id); setMobileMenuOpen(false); }}
+   376→   376→                    className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center gap-3 transition-all ${store.selectedHomeId === home.id ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'hover:bg-slate-50 text-slate-700 border border-transparent'}`}>
+   377→   377→                    <Home className={`w-4 h-4 flex-shrink-0 ${store.selectedHomeId === home.id ? 'text-emerald-600' : 'text-slate-400'}`} />
+   378→   378→                    <div className="flex-1 min-w-0">
+   379→   379→                      <p className="text-sm font-medium truncate">{home.name}</p>
+   380→   380→                      <p className="text-xs text-muted-foreground">{home.roomsCount} pièce{home.roomsCount > 1 ? 's' : ''} · {home.qrCodesCount} QR</p>
+   381→   381→                    </div>
+   382→   382→                  </button>
+   383→   383→                ))}
+   384→   384→              </div>
+   385→   385→            </ScrollArea>
+   386→   386→
+   387→   387→            {/* Rooms section in sidebar */}
+   388→   388→            {selectedHome && (
+   389→   389→              <>
+   390→   390→                <div className="p-4 border-t border-slate-100 flex items-center justify-between">
+   391→   391→                  <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider">Pièces</h2>
+   392→   392→                  {canManage && (
+   393→   393→                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { setRoomName(''); setRoomIcon('Square'); setRoomDialogOpen(true); }}><Plus className="w-4 h-4" /></Button>
+   394→   394→                  )}
+   395→   395→                </div>
+   396→   396→                <ScrollArea className="flex-1">
+   397→   397→                  <div className="p-2 space-y-1">
+   398→   398→                    <button onClick={() => store.selectRoom(null)}
+   399→   399→                      className={`w-full text-left px-3 py-2 rounded-lg flex items-center gap-2 text-sm transition-all ${!store.selectedRoomId ? 'bg-slate-100 font-medium text-foreground' : 'text-muted-foreground hover:bg-slate-50'}`}>
+   400→   400→                      <QrCode className="w-4 h-4" /> Toutes les pièces
+   401→   401→                    </button>
+   402→   402→                    {store.rooms.map((room) => {
+   403→   403→                      const IconComp = ROOM_ICON_MAP[room.icon] || Square;
+   404→   404→                      return (
+   405→   405→                        <button key={room.id} onClick={() => store.selectRoom(room.id)}
+   406→   406→                          className={`w-full text-left px-3 py-2 rounded-lg flex items-center gap-2 text-sm transition-all group ${store.selectedRoomId === room.id ? 'bg-slate-100 font-medium text-foreground' : 'text-muted-foreground hover:bg-slate-50'}`}>
+   407→   407→                          <IconComp className="w-4 h-4" /> <span className="truncate flex-1">{room.name}</span>
+   408→   408→                          <span className="text-xs opacity-0 group-hover:opacity-100 transition-opacity">{room._count.qrCodes}</span>
+   409→   409→                        </button>
+   410→   410→                      );
+   411→   411→                    })}
+   412→   412→                  </div>
+   413→   413→                </ScrollArea>
+   414→   414→              </>
+   415→   415→            )}
+   416→   416→          </div>
+   417→   417→        </aside>
+   418→   418→
+   419→   419→        {mobileMenuOpen && <div className="fixed inset-0 top-14 z-20 bg-black/20 md:hidden" onClick={() => setMobileMenuOpen(false)} />}
+   420→   420→
+   421→   421→        {/* ─── Main Content ─── */}
+   422→   422→        <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-auto">
+   423→   423→          {!selectedHome ? (
+   424→   424→            <div className="flex items-center justify-center h-full min-h-[60vh]">
+   425→   425→              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center max-w-sm">
+   426→   426→                <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-emerald-50 flex items-center justify-center"><Home className="w-8 h-8 text-emerald-500" /></div>
+   427→   427→                <h2 className="text-xl font-semibold mb-2">Bienvenue !</h2>
+   428→   428→                <p className="text-muted-foreground mb-6">{store.homes.length === 0 ? 'Créez votre première maison.' : 'Sélectionnez une maison.'}</p>
+   429→   429→                {store.homes.length === 0 && <Button onClick={() => setHomeDialogOpen(true)}><Plus className="w-4 h-4 mr-2" /> Créer ma maison</Button>}
+   430→   430→              </motion.div>
+   431→   431→            </div>
+   432→   432→          ) : (
+   433→   433→            <motion.div key={selectedHome.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
+   434→   434→              {/* Header */}
+   435→   435→              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+   436→   436→                <div>
+   437→   437→                  <h1 className="text-2xl font-bold flex items-center gap-2">
+   438→   438→                    <Home className="w-6 h-6 text-emerald-600" />{selectedHome.name}
+   439→   439→                  </h1>
+   440→   440→                  <div className="flex gap-2 mt-2">
+   441→   441→                    <Badge variant="secondary" className="text-xs">{store.rooms.length} pièce{store.rooms.length > 1 ? 's' : ''}</Badge>
+   442→   442→                    <Badge variant="secondary" className="text-xs">{filteredQrCodes.length} QR code{filteredQrCodes.length > 1 ? 's' : ''}</Badge>
+   443→   443→                  </div>
+   444→   444→                </div>
+   445→   445→                <div className="flex gap-2">
+   446→   446→                  {canManage && (
+   447→   447→                    <>
+   448→   448→                      <Button variant="outline" size="sm" onClick={() => setHomeDialogOpen(true)}><Pencil className="w-4 h-4 mr-1.5" /> Modifier</Button>
+   449→   449→                      <Button variant="destructive" size="sm" onClick={() => setDeleteHomeId(selectedHome.id)}><Trash2 className="w-4 h-4 mr-1.5" /></Button>
+   450→   450→                    </>
+   451→   451→                  )}
+   452→   452→                </div>
+   453→   453→              </div>
+   454→   454→              <Separator className="mb-6" />
+   455→   455→
+   456→   456→              {/* Rooms grid (compact, inline) */}
+   457→   457→              <div className="flex items-center justify-between mb-4">
+   458→   458→                <h2 className="text-lg font-semibold">Pièces</h2>
+   459→   459→                {canManage && <Button size="sm" variant="outline" onClick={() => { setRoomName(''); setRoomIcon('Square'); setRoomDialogOpen(true); }}><Plus className="w-4 h-4 mr-1.5" /> Pièce</Button>}
+   460→   460→              </div>
+   461→   461→              {store.rooms.length > 0 && (
+   462→   462→                <div className="flex gap-2 overflow-x-auto pb-2 mb-6">
+   463→   463→                  {store.rooms.map((room) => {
+   464→   464→                    const IconComp = ROOM_ICON_MAP[room.icon] || Square;
+   465→   465→                    return (
+   466→   466→                      <button key={room.id} onClick={() => store.selectRoom(room.id)}
+   467→   467→                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm whitespace-nowrap transition-all ${store.selectedRoomId === room.id ? 'bg-emerald-50 border-emerald-300 text-emerald-700' : 'bg-white border-slate-200 hover:border-slate-300 text-slate-600'}`}>
+   468→   468→                        <IconComp className="w-4 h-4" /> {room.name}
+   469→   469→                        <Badge variant="secondary" className="text-[10px] ml-1">{room._count.qrCodes}</Badge>
+   470→   470→                      </button>
+   471→   471→                    );
+   472→   472→                  })}
+   473→   473→                </div>
+   474→   474→              )}
+   475→   475→              {store.rooms.length === 0 && (
+   476→   476→                <p className="text-sm text-muted-foreground mb-6">Aucune pièce. Ajoutez-en pour organiser vos QR codes.</p>
+   477→   477→              )}
+   478→   478→
+   479→   479→              {/* QR Codes Section */}
+   480→   480→              <Separator className="mb-6" />
+   481→   481→              <div className="flex items-center justify-between mb-4">
+   482→   482→                <h2 className="text-lg font-semibold flex items-center gap-2">
+   483→   483→                  <QrCode className="w-5 h-5" />
+   484→   484→                  QR Codes
+   485→   485→                  {store.selectedRoomId && <Badge variant="outline" className="ml-1 text-xs">{store.rooms.find(r => r.id === store.selectedRoomId)?.name}</Badge>}
+   486→   486→                </h2>
+   487→   487→                {canManage && (
+   488→   488→                  <Button size="sm" onClick={() => { setQrName(''); setQrType('wifi'); setQrRoomId(store.selectedRoomId || ''); setQrPin(''); setQrDialogOpen(true); }}>
+   489→   489→                    <Plus className="w-4 h-4 mr-1.5" /> Nouveau QR
+   490→   490→                  </Button>
+   491→   491→                )}
+   492→   492→              </div>
+   493→   493→
+   494→   494→              {filteredQrCodes.length === 0 ? (
+   495→   495→                <Card className="border-dashed border-2">
+   496→   496→                  <CardContent className="flex flex-col items-center justify-center py-12">
+   497→   497→                    <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mb-3"><QrCode className="w-7 h-7 text-slate-400" /></div>
+   498→   498→                    <p className="font-medium text-muted-foreground">Aucun QR code</p>
+   499→   499→                    <p className="text-sm text-muted-foreground mb-4">Créez votre premier QR code dynamique</p>
+   500→   500→                    {canManage && <Button size="sm" onClick={() => setQrDialogOpen(true)}><Plus className="w-4 h-4 mr-1.5" /> Créer un QR code</Button>}
+   501→   501→                  </CardContent>
+   502→   502→                </Card>
+   503→   503→              ) : (
+   504→   504→                <motion.div variants={stagger} initial="hidden" animate="visible" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+   505→   505→                  {filteredQrCodes.map((qr) => {
+   506→   506→                    const IconComp = QR_ICON_MAP[qr.type] || Square;
+   507→   507→                    const colorClass = QR_COLOR_MAP[qr.type] || 'bg-slate-50 text-slate-700 border-slate-200';
+   508→   508→                    return (
+   509→   509→                      <motion.div key={qr.id} variants={fadeIn}>
+   510→   510→                        <Card className={`group hover:shadow-md transition-all ${!qr.isActive ? 'opacity-60' : ''}`}>
+   511→   511→                          <CardContent className="p-4">
+   512→   512→                            <div className="flex items-start justify-between mb-3">
+   513→   513→                              <div className="flex items-center gap-3">
+   514→   514→                                <div className={`p-2 rounded-lg border ${colorClass}`}><IconComp className="w-5 h-5" /></div>
+   515→   515→                                <div>
+   516→   516→                                  <p className="font-medium text-sm">{qr.name}</p>
+   517→   517→                                  <p className="text-xs text-muted-foreground">{QR_TYPE_LABELS[qr.type as QrType] || qr.type}</p>
+   518→   518→                                </div>
+   519→   519→                              </div>
+   520→   520→                              <div className="flex items-center gap-1">
+   521→   521→                                {canManage && (
+   522→   522→                                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleToggleQr(qr)} title={qr.isActive ? 'Désactiver' : 'Activer'}>
+   523→   523→                                    {qr.isActive ? <Power className="w-3.5 h-3.5 text-emerald-600" /> : <PowerOff className="w-3.5 h-3.5 text-slate-400" />}
+   524→   524→                                  </Button>
+   525→   525→                                )}
+   526→   526→                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setPreviewQr(qr); setPreviewDialogOpen(true); }}><Eye className="w-3.5 h-3.5" /></Button>
+   527→   527→                                {canManage && <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteQrId(qr.id)}><Trash2 className="w-3.5 h-3.5" /></Button>}
+   528→   528→                              </div>
+   529→   529→                            </div>
+   530→   530→                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+   531→   531→                              {qr.room && <Badge variant="outline" className="text-[10px]">{qr.room.name}</Badge>}
+   532→   532→                              <span className="font-mono">qrdomotik.com/r/{qr.publicSlug}</span>
+   533→   533→                            </div>
+   534→   534→                            {!qr.isActive && <Badge variant="secondary" className="text-[10px] mt-2 bg-red-50 text-red-600">Désactivé</Badge>}
+   535→   535→                            {qr.pinCode && <Badge variant="secondary" className="text-[10px] mt-2">PIN: ••••</Badge>}
+   536→   536→                          </CardContent>
+   537→   537→                        </Card>
+   538→   538→                      </motion.div>
+   539→   539→                    );
+   540→   540→                  })}
+   541→   541→                </motion.div>
+   542→   542→              )}
+   543→   543→            </motion.div>
+   544→   544→          )}
+   545→   545→        </main>
+   546→   546→      </div>
+   547→   547→
+   548→   548→      {/* ═══ DIALOGS ═══ */}
+   549→   549→
+   550→   550→      {/* Create/Edit Home */}
+   551→   551→      <Dialog open={homeDialogOpen} onOpenChange={setHomeDialogOpen}>
+   552→   552→        <DialogContent>
+   553→   553→          <DialogHeader><DialogTitle>{selectedHome ? 'Modifier' : 'Nouvelle'} maison</DialogTitle><DialogDescription>Nom et adresse optionnelle.</DialogDescription></DialogHeader>
+   554→   554→          <div className="space-y-4 py-2">
+   555→   555→            <div className="space-y-2"><Label>Nom</Label><Input placeholder="Maison Famille..." value={homeName} onChange={(e) => setHomeName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleCreateHome()} /></div>
+   556→   556→            <div className="space-y-2"><Label>Adresse</Label><Input placeholder="12 rue de la Paix, Paris" value={homeAddress} onChange={(e) => setHomeAddress(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleCreateHome()} /></div>
+   557→   557→          </div>
+   558→   558→          <DialogFooter><Button variant="outline" onClick={() => setHomeDialogOpen(false)}>Annuler</Button><Button onClick={handleCreateHome}>Créer</Button></DialogFooter>
+   559→   559→        </DialogContent>
+   560→   560→      </Dialog>
+   561→   561→
+   562→   562→      {/* Create Room */}
+   563→   563→      <Dialog open={roomDialogOpen} onOpenChange={setRoomDialogOpen}>
+   564→   564→        <DialogContent>
+   565→   565→          <DialogHeader><DialogTitle>Nouvelle pièce</DialogTitle><DialogDescription>Ajoutez une pièce à votre maison.</DialogDescription></DialogHeader>
+   566→   566→          <div className="space-y-4 py-2">
+   567→   567→            <div className="space-y-2"><Label>Nom</Label><Input placeholder="Cuisine, Chambre, Salon..." value={roomName} onChange={(e) => setRoomName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleCreateRoom()} /></div>
+   568→   568→            <div className="space-y-2"><Label>Icône</Label><RoomIconSelector value={roomIcon} onChange={setRoomIcon} /></div>
+   569→   569→          </div>
+   570→   570→          <DialogFooter><Button variant="outline" onClick={() => setRoomDialogOpen(false)}>Annuler</Button><Button onClick={handleCreateRoom}>Ajouter</Button></DialogFooter>
+   571→   571→        </DialogContent>
+   572→   572→      </Dialog>
+   573→   573→
+   574→   574→      {/* Edit Room */}
+   575→   575→      <Dialog open={!!editingRoom} onOpenChange={(open) => !open && setEditingRoom(null)}>
+   576→   576→        <DialogContent>
+   577→   577→          <DialogHeader><DialogTitle>Modifier la pièce</DialogTitle></DialogHeader>
+   578→   578→          {editingRoom && (<div className="space-y-4 py-2">
+   579→   579→            <div className="space-y-2"><Label>Nom</Label><Input value={editingRoom.name} onChange={(e) => setEditingRoom({ ...editingRoom, name: e.target.value })} /></div>
+   580→   580→            <div className="space-y-2"><Label>Icône</Label><RoomIconSelector value={editingRoom.icon} onChange={(icon) => setEditingRoom({ ...editingRoom, icon })} /></div>
+   581→   581→          </div>)}
+   582→   582→          <DialogFooter><Button variant="outline" onClick={() => setEditingRoom(null)}>Annuler</Button><Button onClick={handleUpdateRoom}>Enregistrer</Button></DialogFooter>
+   583→   583→        </DialogContent>
+   584→   584→      </Dialog>
+   585→   585→
+   586→   586→      {/* Create QR Code */}
+   587→   587→      <Dialog open={qrDialogOpen} onOpenChange={setQrDialogOpen}>
+   588→   588→        <DialogContent className="max-w-lg">
+   589→   589→          <DialogHeader><DialogTitle>Nouveau QR Code</DialogTitle><DialogDescription>Choisissez un type et configurez le contenu dynamique.</DialogDescription></DialogHeader>
+   590→   590→          <div className="space-y-5 py-2">
+   591→   591→            <div className="space-y-2"><Label>Nom du QR code</Label><Input placeholder="Ex: Wi-Fi Cuisine, Portier Entrée..." value={qrName} onChange={(e) => setQrName(e.target.value)} /></div>
+   592→   592→            <div className="space-y-2">
+   593→   593→              <Label>Type de module</Label>
+   594→   594→              <QrTypeSelector value={qrType} onChange={setQrType} />
+   595→   595→            </div>
+   596→   596→            <div className="space-y-2">
+   597→   597→              <Label>Pièce (optionnel)</Label>
+   598→   598→              <select
+   599→   599→                value={qrRoomId}
+   600→   600→                onChange={(e) => setQrRoomId(e.target.value)}
+   601→   601→                className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+   602→   602→              >
+   603→   603→                <option value="">Aucune</option>
+   604→   604→                {store.rooms.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+   605→   605→              </select>
+   606→   606→            </div>
+   607→   607→            <div className="space-y-2">
+   608→   608→              <Label>Code PIN (optionnel — 4 chiffres)</Label>
+   609→   609→              <Input placeholder="Ex: 1234" value={qrPin} onChange={(e) => setQrPin(e.target.value.replace(/\D/g, '').slice(0, 4))} maxLength={4} className="max-w-[120px]" />
+   610→   610→              <p className="text-xs text-muted-foreground">Protège l\'accès au QR code (ex: Portier Virtuel)</p>
+   611→   611→            </div>
+   612→   612→          </div>
+   613→   613→          <DialogFooter><Button variant="outline" onClick={() => setQrDialogOpen(false)}>Annuler</Button><Button onClick={handleCreateQr} disabled={!qrName.trim()}><QrCode className="w-4 h-4 mr-1.5" /> Créer le QR code</Button></DialogFooter>
+   614→   614→        </DialogContent>
+   615→   615→      </Dialog>
+   616→   616→
+   617→   617→      {/* QR Preview & Download */}
+   618→   618→      <Dialog open={previewDialogOpen} onOpenChange={setPreviewDialogOpen}>
+   619→   619→        <DialogContent className="max-w-sm">
+   620→   620→          <DialogHeader><DialogTitle>QR Code — {previewQr?.name}</DialogTitle><DialogDescription>Imprimez ce code et collez-le dans votre maison.</DialogDescription></DialogHeader>
+   621→   621→          {previewQr && (
+   622→   622→            <div className="space-y-4 py-2">
+   623→   623→              <div className="flex justify-center">
+   624→   624→                <div className="bg-white p-4 rounded-xl border-2 border-slate-200 shadow-sm">
+   625→   625→                <img src={`/api/qr-codes/generate?slug=${previewQr.publicSlug}&size=280`} alt="QR Code" width={280} height={280} className="block" />
+   626→   626→                </div>
+   627→   627→              </div>
+   628→   628→              <div className="text-center space-y-2">
+   629→   629→                <div className="flex items-center justify-center gap-2">
+   630→   630→                  <code className="text-xs bg-slate-100 px-2 py-1 rounded font-mono">qrdomotik.com/r/{previewQr.publicSlug}</code>
+   631→   631→                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleCopySlug(previewQr.publicSlug)}>
+   632→   632→                    {slugCopied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+   633→   633→                  </Button>
+   634→   634→                </div>
+   635→   635→                <Badge variant={previewQr.isActive ? 'default' : 'secondary'} className={previewQr.isActive ? 'bg-emerald-100 text-emerald-700' : ''}>
+   636→   636→                  {previewQr.isActive ? 'Actif' : 'Désactivé'}
+   637→   637→                </Badge>
+   638→   638→                {previewQr.room && <p className="text-xs text-muted-foreground">Pièce : {previewQr.room.name}</p>}
+   639→   639→              </div>
+   640→   640→              <div className="flex gap-2">
+   641→   641→                <Button className="flex-1" asChild>
+   642→   642→                  <a href={`/api/qr-codes/generate?slug=${previewQr.publicSlug}&size=600`} download={`qr-${previewQr.publicSlug}.png`}>
+   643→   643→                    <Download className="w-4 h-4 mr-1.5" /> Télécharger PNG
+   644→   644→                  </a>
+   645→   645→                </Button>
+   646→   646→                <Button variant="outline" className="flex-1" onClick={() => handleCopySlug(previewQr.publicSlug)}>
+   647→   647→                  <Copy className="w-4 h-4 mr-1.5" /> Copier le lien
+   648→   648→                </Button>
+   649→   649→              </div>
+   650→   650→            </div>
+   651→   651→          )}
+   652→   652→        </DialogContent>
+   653→   653→      </Dialog>
+   654→   654→
+   655→   655→      {/* Delete confirmations */}
+   656→   656→      <AlertDialog open={!!deleteHomeId} onOpenChange={(open) => !open && setDeleteHomeId(null)}>
+   657→   657→        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Supprimer cette maison ?</AlertDialogTitle><AlertDialogDescription>Action irréversible. Tous les QR codes et pièces seront supprimés.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Annuler</AlertDialogCancel><AlertDialogAction onClick={handleDeleteHome} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Supprimer</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+   658→   658→      </AlertDialog>
+   659→   659→      <AlertDialog open={!!deleteRoomId} onOpenChange={(open) => !open && setDeleteRoomId(null)}>
+   660→   660→        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Supprimer cette pièce ?</AlertDialogTitle><AlertDialogDescription>Les QR codes seront dissociés.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Annuler</AlertDialogCancel><AlertDialogAction onClick={handleDeleteRoom} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Supprimer</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+   661→   661→      </AlertDialog>
+   662→   662→      <AlertDialog open={!!deleteQrId} onOpenChange={(open) => !open && setDeleteQrId(null)}>
+   663→   663→        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Supprimer ce QR code ?</AlertDialogTitle><AlertDialogDescription>Le lien public sera définitivement cassé.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Annuler</AlertDialogCancel><AlertDialogAction onClick={handleDeleteQr} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Supprimer</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+   664→   664→      </AlertDialog>
+   665→   665→
+   666→   666→      {/* ─── Footer ─── */}
+   667→   667→      <footer className="border-t border-slate-200 bg-white mt-auto">
+   668→   668→        <div className="container mx-auto px-4 py-4">
+   669→   669→          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground">
+   670→   670→            <div className="flex items-center gap-2">
+   671→   671→              <QrCode className="w-3.5 h-3.5" />
+   672→   672→              <span className="font-semibold text-foreground">QR Domotik</span>
+   673→   673→              <span>— Étape 3 : QR Codes</span>
+   674→   674→            </div>
+   675→   675→            <div className="flex items-center gap-3">
+   676→   676→              <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> CRUD QR</span>
+   677→   677→              <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Génération PNG</span>
+   678→   678→              <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> 9 modules</span>
+   679→   679→            </div>
+   680→   680→          </div>
+   681→   681→        </div>
+   682→   682→      </footer>
+   683→   683→    </div>
+   684→   684→  );
+   685→   685→}
+   686→   686→
+   687→   687→// ─── Root ────────────────────────────────────────────────────────────────
+   688→   688→export default function HomePage() {
+   689→   689→  const { data: session, status } = useSession();
+   690→   690→  if (status === 'loading') {
+   691→   691→    return (
+   692→   692→      <div className="min-h-screen flex items-center justify-center">
+   693→   693→        <div className="flex flex-col items-center gap-3">
+   694→   694→          <div className="w-8 h-8 border-2 border-emerald-300 border-t-emerald-600 rounded-full animate-spin" />
+   695→   695→          <p className="text-sm text-muted-foreground">Chargement...</p>
+   696→   696→        </div>
+   697→   697→      </div>
+   698→   698→    );
+   699→   699→  }
+   700→   700→  return session ? <Dashboard /> : <AuthForm />;
+   701→   701→}
+
+[showing lines 200-701 of 702; use offset=702 with limit to continue reading]
