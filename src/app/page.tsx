@@ -24,16 +24,19 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import {
-  QrCode, Home, Plus, LogIn, LogOut, UserPlus,
+  QrCode, Home, Plus, LogIn, LogOut, UserPlus, Users,
   Bed, Bath, Sofa, CookingPot, DoorOpen, Car, Lamp, Monitor,
-  Flower2, WashingMachine, Refrigerator, Tv, Warehouse,
+  Flower2, WashingMachine, Refrigerator, Tv, Warehouse, KeyRound,
   Trash2, Pencil, Menu, X, LayoutDashboard, Square,
   Wifi, ExternalLink, BookOpen, StickyNote, ShoppingCart,
   Pill, Star, Package, Download, Eye, Power, PowerOff,
   Copy, Check, Bell, Settings, PackageSearch, ToggleLeft, ToggleRight,
+  Zap, UtensilsCrossed, MessageSquare,
 } from 'lucide-react';
 import { ContentEditor, StockDlcPanel } from '@/components/dashboard/ContentEditor';
 import { ActivityLogs } from '@/components/dashboard/ActivityLogs';
+import { MembersPanel } from '@/components/dashboard/MembersPanel';
+import { NotificationBell } from '@/components/dashboard/NotificationBell';
 import { ROOM_ICONS } from '@/lib/constants';
 import { QR_TYPE_LABELS, QR_TYPE_DESCRIPTIONS, QR_TYPE_ICONS, type QrType } from '@/types';
 
@@ -46,7 +49,8 @@ const ROOM_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>>
 const QR_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   wifi: Wifi, link: ExternalLink, info: BookOpen, postit: StickyNote,
   shopping_list: ShoppingCart, doorman: DoorOpen, medication: Pill,
-  chores: Star, stock_dlc: Package,
+  chores: Star, stock_dlc: Package, guestbook: MessageSquare,
+  energy_counter: Zap, keys_tracker: KeyRound, daily_menu: UtensilsCrossed,
 };
 
 const QR_COLOR_MAP: Record<string, string> = {
@@ -59,6 +63,10 @@ const QR_COLOR_MAP: Record<string, string> = {
   medication: 'bg-teal-50 text-teal-700 border-teal-200',
   chores: 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200',
   stock_dlc: 'bg-lime-50 text-lime-700 border-lime-200',
+  guestbook: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+  energy_counter: 'bg-yellow-50 text-yellow-700 border-yellow-200',
+  keys_tracker: 'bg-cyan-50 text-cyan-700 border-cyan-200',
+  daily_menu: 'bg-red-50 text-red-700 border-red-200',
 };
 
 // ─── Defaults content per type ──────────────────────────────────────────
@@ -179,7 +187,7 @@ function RoomIconSelector({ value, onChange }: { value: string; onChange: (icon:
 // QR TYPE SELECTOR
 // ═══════════════════════════════════════════════════════════════════════════
 function QrTypeSelector({ value, onChange }: { value: string; onChange: (type: string) => void }) {
-  const types: QrType[] = ['wifi', 'link', 'info', 'postit', 'shopping_list', 'doorman', 'medication', 'chores', 'stock_dlc'];
+  const types: QrType[] = ['wifi', 'link', 'info', 'postit', 'shopping_list', 'doorman', 'medication', 'chores', 'stock_dlc', 'guestbook', 'energy_counter', 'keys_tracker', 'daily_menu'];
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
       {types.map((type) => {
@@ -238,9 +246,10 @@ function Dashboard() {
   const [editQr, setEditQr] = useState<QrCodeInfo | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
 
-  // Activity logs & Stock panel
+  // Activity logs & Stock & Members panel
   const [showLogs, setShowLogs] = useState(false);
   const [showStock, setShowStock] = useState(false);
+  const [showMembers, setShowMembers] = useState(false);
 
   useEffect(() => { store.refreshHomes(); }, []);
 
@@ -400,6 +409,7 @@ function Dashboard() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <NotificationBell />
             <Badge variant="secondary" className="hidden sm:flex items-center gap-1.5">
               <LayoutDashboard className="w-3.5 h-3.5" /> Dashboard
             </Badge>
@@ -612,7 +622,11 @@ function Dashboard() {
               <Separator />
 
               {/* Quick actions bar */}
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" onClick={() => setShowMembers(!showMembers)} className={showMembers ? 'bg-violet-50 border-violet-300 text-violet-700' : ''}>
+                  <Users className="w-4 h-4 mr-1.5" /> Membres
+                  {store.members.length > 0 && <Badge variant="secondary" className="ml-1.5 text-[10px]">{store.members.length}</Badge>}
+                </Button>
                 <Button variant="outline" size="sm" onClick={() => setShowLogs(!showLogs)} className={showLogs ? 'bg-slate-100' : ''}>
                   <Bell className="w-4 h-4 mr-1.5" /> Activité
                 </Button>
@@ -626,6 +640,15 @@ function Dashboard() {
                 <Card>
                   <CardContent className="p-4">
                     <ActivityLogs homeId={selectedHome.id} />
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Members */}
+              {showMembers && (
+                <Card className="border-violet-200">
+                  <CardContent className="p-4">
+                    <MembersPanel />
                   </CardContent>
                 </Card>
               )}
@@ -795,10 +818,10 @@ function Dashboard() {
               <span>— Plateforme complète</span>
             </div>
             <div className="flex items-center gap-3">
-              <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> 9 modules</span>
-              <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Contenu dynamique</span>
-              <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Stock & DLC</span>
-              <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Journal d'activité</span>
+              <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> 13 modules</span>
+              <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Multi-utilisateurs</span>
+              <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Rôles & Permissions</span>
+              <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Notifications</span>
             </div>
           </div>
         </div>

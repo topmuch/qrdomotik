@@ -3,16 +3,19 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { generatePublicSlug, generatePin } from '@/lib/slug';
-import { z } from 'zod';
+import { z } from 'zod/v4';
+import { requirePermission } from '@/lib/permissions';
 
 const createQrSchema = z.object({
   name: z.string().min(1, 'Le nom est requis').max(80),
   type: z.enum([
     'wifi', 'link', 'info', 'postit', 'shopping_list',
     'doorman', 'medication', 'chores', 'stock_dlc',
+    'guestbook', 'energy_counter', 'keys_tracker', 'daily_menu',
   ]),
   roomId: z.string().optional(),
   pinCode: z.string().length(4).regex(/^\d{4}$/).optional(),
+  isPrivate: z.boolean().optional(),
   contentJson: z.string().optional(),
 });
 
@@ -84,8 +87,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'homeId requis' }, { status: 400 });
     }
 
-    const member = await checkAccess(session.user.id, body.homeId);
-    if (!member || (member.role !== 'owner' && member.role !== 'admin')) {
+    const membership = await requirePermission(session.user.id, body.homeId, 'canCreateQr');
+    if (!membership) {
       return NextResponse.json({ success: false, error: 'Accès refusé' }, { status: 403 });
     }
 
@@ -113,6 +116,7 @@ export async function POST(req: NextRequest) {
         name: parsed.data.name,
         type: parsed.data.type,
         publicSlug: slug,
+        isPrivate: parsed.data.isPrivate ?? (parsed.data.pinCode ? true : false),
         pinCode: parsed.data.pinCode || null,
         content: parsed.data.contentJson
           ? { create: { contentJson: parsed.data.contentJson } }
