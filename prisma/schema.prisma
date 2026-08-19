@@ -1,0 +1,258 @@
+// ═══════════════════════════════════════════════════════════════════════════════
+// QR DOMOTIK — Schéma de Base de Données Complet
+// Plateforme SaaS de Maison Phygital via QR Codes Dynamiques
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ─── Configuration ─────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TABLE 1 : USERS — Utilisateurs de la plateforme
+// ═══════════════════════════════════════════════════════════════════════════════
+// Un utilisateur peut être propriétaire de plusieurs maisons,
+// et membre de maisons d'autres propriétaires.
+
+model User {
+  id         String   @id @default(cuid())
+  email      String   @unique
+  passwordHash String  @map("password_hash")
+  fullName   String   @map("full_name")
+  avatarUrl  String?  @map("avatar_url")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  // ─── Relations ───
+  ownedHomes    Home[]       @relation("HomeOwner")
+  memberships   HomeMember[]
+  activityLogs  ActivityLog[]
+
+  @@map("users")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TABLE 2 : HOMES — Maisons / Foyers
+// ═══════════════════════════════════════════════════════════════════════════════
+// Chaque maison appartient à un propriétaire (User).
+// Une maison contient des pièces, des QR codes, des produits, etc.
+
+model Home {
+  id        String   @id @default(cuid())
+  ownerId   String   @map("owner_id")
+  name      String
+  address   String?
+  timezone  String   @default("Europe/Paris")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // ─── Relations ───
+  owner         User             @relation("HomeOwner", fields: [ownerId], references: [id])
+  members       HomeMember[]
+  rooms         Room[]
+  qrCodes       QrCode[]
+  activityLogs  ActivityLog[]
+  products      Product[]
+
+  @@map("homes")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TABLE 3 : HOME_MEMBERS — Membres d'un foyer
+// ═══════════════════════════════════════════════════════════════════════════════
+// Rôles : owner, admin, member, child
+// Permet de gérer les permissions (RLS émulé au niveau applicatif)
+
+model HomeMember {
+  id        String   @id @default(cuid())
+  homeId    String   @map("home_id")
+  userId    String   @map("user_id")
+  role      String   @default("member") // 'owner' | 'admin' | 'member' | 'child'
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // ─── Relations ───
+  home Home @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // ─── Contraintes ───
+  @@unique([homeId, userId]) // Un utilisateur ne peut être membre qu'une fois par maison
+  @@map("home_members")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TABLE 4 : ROOMS — Pièces de la maison
+// ═══════════════════════════════════════════════════════════════════════════════
+// Exemples : Cuisine, Salon, Chambre, Entrée, Garage, Salle de bain
+// Le champ `icon` stocke le nom d'une icône Lucide (ex: "utensils", "sofa")
+
+model Room {
+  id        String   @id @default(cuid())
+  homeId    String   @map("home_id")
+  name      String
+  icon      String   @default("square") // Nom d'icône Lucide
+  sortOrder  Int     @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // ─── Relations ───
+  home    Home      @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  qrCodes QrCode[]
+
+  @@map("rooms")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TABLE 5 : QR_CODES — Codes QR dynamiques
+// ═══════════════════════════════════════════════════════════════════════════════
+// Le `public_slug` est l'identifiant public unique (ex: 'x8k2p9').
+// Le `type` détermine quel module renderer utiliser.
+// Le `pinCode` optionnel protège l'accès aux modules sensibles (Portier).
+// Le `isPresentMode` est spécifique au module Portier (Absent/Présent).
+
+model QrCode {
+  id            String   @id @default(cuid())
+  homeId        String   @map("home_id")
+  roomId        String?  @map("room_id")
+  name          String
+  type          String   // Voir QrType ci-dessous
+  publicSlug    String   @unique @map("public_slug")
+  isActive      Boolean  @default(true) @map("is_active")
+  pinCode       String?  @map("pin_code") // PIN 4 chiffres optionnel
+  isPresentMode Boolean  @default(true) @map("is_present_mode") // Portier: true=Présent, false=Absent
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // ─── Relations ───
+  home         Home          @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  room         Room?         @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  content      QrContent?
+  activityLogs ActivityLog[]
+
+  @@index([homeId])
+  @@index([publicSlug])
+  @@map("qr_codes")
+}
+
+/*
+  ┌──────────────────────────────────────────────────────────────────┐
+  │  TYPES DE QR CODES (QrType)                                     │
+  ├──────────────────────────────────────────────────────────────────┤
+  │  "wifi"          → Connexion Wi-Fi                              │
+  │  "link"          → Lien externe (Spotify, PDF, etc.)            │
+  │  "info"          → Page d'information / Guide maison            │
+  │  "postit"        → Post-it numérique                            │
+  │  "shopping_list" → Liste de courses / Tâches collaborative      │
+  │  "doorman"       → Portier virtuel (livreurs, voisins)          │
+  │  "medication"    → Suivi médicaments / Vitamines                │
+  │  "chores"        → Corvées enfants (gamifié avec points)        │
+  │  "stock_dlc"     → Gestion stock & Dates Limites Consommation   │
+  └──────────────────────────────────────────────────────────────────┘
+*/
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TABLE 6 : QR_CONTENTS — Contenu dynamique de chaque QR code
+// ═══════════════════════════════════════════════════════════════════════════════
+// Le `contentJson` stocke la configuration spécifique au type de module.
+// Exemple pour Wi-Fi: {"ssid":"MonWiFi","password":"1234","security":"WPA2"}
+// Exemple pour Portier: {"predefinedInstructions":[...],"showRingButton":true}
+
+model QrContent {
+  id          String   @id @default(cuid())
+  qrCodeId    String   @unique @map("qr_code_id")
+  contentJson String   @map("content_json") // JSON string
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // ─── Relations ───
+  qrCode QrCode @relation(fields: [qrCodeId], references: [id], onDelete: Cascade)
+
+  @@map("qr_contents")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TABLE 7 : ACTIVITY_LOGS — Journal d'activité
+// ═══════════════════════════════════════════════════════════════════════════════
+// Enregistre toutes les interactions avec les QR codes publics.
+// `userId` est nullable car les visiteurs (livreurs, invités) ne sont pas connectés.
+// `actionType` : "ring", "message_left", "instruction_used", "wifi_connected",
+//                "medication_taken", "chore_completed", "item_checked", etc.
+
+model ActivityLog {
+  id          String   @id @default(cuid())
+  homeId      String   @map("home_id")
+  qrCodeId    String?  @map("qr_code_id")
+  userId      String?  @map("user_id")
+  actionType  String   @map("action_type")
+  detailsJson String?  @map("details_json") // JSON string avec détails additionnels
+  visitorName String?  @map("visitor_name") // Nom laissé par un visiteur
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // ─── Relations ───
+  home    Home    @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  qrCode  QrCode? @relation(fields: [qrCodeId], references: [id], onDelete: SetNull)
+  user    User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([homeId])
+  @@index([qrCodeId])
+  @@index([createdAt])
+  @@map("activity_logs")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TABLE 8 : PRODUCTS — Produits pour le module Stock & DLC
+// ═══════════════════════════════════════════════════════════════════════════════
+// Représente un type de produit (ex: "Lait", "Yaourt")
+// `minStockThreshold` : niveau d'alerte basse
+// `currentStock` : quantité actuelle en stock
+
+model Product {
+  id                 String   @id @default(cuid())
+  homeId             String   @map("home_id")
+  name               String
+  category           String   @default("autre") // 'laitier', 'viande', 'epicerie', 'boisson', 'fruit', 'conserve', 'autre'
+  minStockThreshold  Int      @default(1) @map("min_stock_threshold")
+  currentStock       Int      @default(0) @map("current_stock")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  // ─── Relations ───
+  home             Home              @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  productInstances ProductInstance[]
+
+  @@index([homeId])
+  @@map("products")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TABLE 9 : PRODUCT_INSTANCES — Instances de produits (pour le suivi DLC)
+// ═══════════════════════════════════════════════════════════════════════════════
+// Chaque instance représente un article physique avec sa date de péremption.
+// Le cron job quotidien met à jour le `status` en fonction de `expiryDate` :
+//   - J+30+ : "fresh" (vert)
+//   - J-3    : "warning" (orange)
+//   - J-1    : "critical" (rouge)
+//   - J+0    : "expired" (gris barré)
+//   - Manuellement : "consumed" (consommé)
+
+model ProductInstance {
+  id           String    @id @default(cuid())
+  productId    String    @map("product_id")
+  purchaseDate DateTime? @map("purchase_date")
+  expiryDate   DateTime  @map("expiry_date")
+  status       String    @default("fresh") // 'fresh' | 'warning' | 'critical' | 'expired' | 'consumed'
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  // ─── Relations ───
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([expiryDate])
+  @@index([status])
+  @@map("product_instances")
+}
