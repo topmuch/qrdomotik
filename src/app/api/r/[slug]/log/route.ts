@@ -31,11 +31,13 @@ export async function POST(
     }
 
     await db.activityLog.create({
-      homeId: qr.homeId,
-      qrCodeId: qr.id,
-      actionType: parsed.data.actionType,
-      detailsJson: parsed.data.detailsJson || null,
-      visitorName: parsed.data.visitorName || null,
+      data: {
+        homeId: qr.homeId,
+        qrCodeId: qr.id,
+        actionType: parsed.data.actionType,
+        detailsJson: parsed.data.detailsJson || null,
+        visitorName: parsed.data.visitorName || null,
+      },
     });
 
     return NextResponse.json({ success: true, message: 'Action enregistrée' });

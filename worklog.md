@@ -85,3 +85,29 @@ Stage Summary:
 - Toggle actif/désactivé pour chaque QR code
 - Filtrage par pièce dans le sidebar
 - Prochaine étape : Étape 4 — Pages publiques dynamiques (/r/[slug])
+
+---
+Task ID: 4-3
+Agent: Main Architect
+Task: Étape 4 — PIN verify API, PinGate fix, InactiveQr, Public page /r/[slug]
+
+Work Log:
+- Créé /api/r/[slug]/verify/route.ts (POST : vérifie PIN 4 chiffres, renvoie contentJson si correct, log pin_verified)
+- Corrigé bug Prisma : db.activityLog.create() nécessite le wrapper { data: {...} } (fix dans verify + log routes)
+- Réécrit PinGate.tsx : import Button correct, auto-submit après 4 chiffres, appel API verify, gestion erreur/chargement
+- Créé InactiveQr.tsx : page « QR Code désactivé » avec nom et maison
+- Créé /r/[slug]/page.tsx : page publique complète avec 5 états (loading, 404, inactive, PIN gate, contenu débloqué)
+- ModuleRouter : routing dynamique des 9 modules par type de QR
+- Header avec branding QR Domotik, badge type, info maison/pièce
+- Footer sticky « Propulsé par QR Domotik » avec adresse
+- Injection isPresentMode pour module Portier
+- Vérifié Agent Browser : page Wifi publique OK, PIN gate + déverrouillage OK, QR inactive OK, 404 OK
+- Dashboard intact après modifications
+- Lint 0 erreurs
+
+Stage Summary:
+- 4 endpoints API publics : GET /api/r/[slug], POST /api/r/[slug]/log, POST /api/r/[slug]/verify
+- Page publique /r/[slug] complète avec 5 états (loading, erreur, inactif, PIN, contenu)
+- 9 modules rendus dynamiquement selon le type du QR
+- Flux PIN : gate → verify API → déverrouillage → module affiché
+- Prochaine étape : Étape 5 — Portier Virtuel (présent/absent) + Alertes DLC + finalisation
