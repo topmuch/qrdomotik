@@ -37,6 +37,7 @@ import { ContentEditor, StockDlcPanel } from '@/components/dashboard/ContentEdit
 import { ActivityLogs } from '@/components/dashboard/ActivityLogs';
 import { MembersPanel } from '@/components/dashboard/MembersPanel';
 import { NotificationBell } from '@/components/dashboard/NotificationBell';
+import { NotificationPermission } from '@/components/dashboard/NotificationPermission';
 import { ROOM_ICONS } from '@/lib/constants';
 import { QR_TYPE_LABELS, QR_TYPE_DESCRIPTIONS, QR_TYPE_ICONS, type QrType } from '@/types';
 
@@ -478,6 +479,7 @@ function Dashboard() {
 
         {/* ─── Main Content ─── */}
         <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-auto">
+          <NotificationPermission />
           {!selectedHome ? (
             <div className="flex items-center justify-center h-full min-h-[60vh]">
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center max-w-sm">
@@ -821,7 +823,7 @@ function Dashboard() {
               <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> 13 modules</span>
               <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Multi-utilisateurs</span>
               <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Rôles & Permissions</span>
-              <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Notifications</span>
+              <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> PWA</span>
             </div>
           </div>
         </div>

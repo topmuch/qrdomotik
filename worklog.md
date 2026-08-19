@@ -171,3 +171,36 @@ Stage Summary:
 - 3 composants frontend complets
 - Dashboard intégré avec panneau membres, cloche notifications
 - 13 types de QR codes supportés dans le sélecteur
+
+---
+Task ID: 3
+Agent: Main Agent
+Task: Étape 3 — Configuration PWA complète
+
+Work Log:
+- Generated PWA app icon (1024x1024) via z-ai image-gen CLI, resized to 192x192 and 512x512 with sharp
+- Created public/manifest.json: name, short_name, display=standalone, theme_color=#059669, 3 icon entries, screenshot, shortcut
+- Created public/sw.js: install/activate/fetch lifecycle, cache-first for static assets, network-first for API routes, push notification handler, notification click handler, offline fallback page
+- Created src/lib/sw-register.ts: registerServiceWorker(), fetchVapidPublicKey(), subscribeToPushNotifications(), unsubscribeFromPushNotifications(), urlBase64ToUint8Array helper
+- Created src/lib/vapid.ts: ECDH prime256v1 VAPID key generation, getVapidKeys(), env-based or auto-gen for dev
+- Created src/lib/push.ts: sendPushToUser(), sendPushToHome(), createNotification() using web-push package
+- Created src/hooks/use-install-prompt.ts: beforeinstallprompt/appinstalled event capture, isInstallable/isInstalled/isStandalone detection, promptInstall() callback
+- Created src/components/pwa-init.tsx: SW auto-registration on mount, sw-updated toast with reload action, renders InstallButton
+- Created src/components/dashboard/InstallButton.tsx: Animated floating card with install prompt, success state, 7-day dismiss with localStorage
+- Created src/components/dashboard/NotificationPermission.tsx: 3s-delayed amber banner for notification permission request, push subscribe on accept, dismiss to localStorage
+- Created src/app/api/push/subscribe/route.ts: POST to upsert PushSubscription, DELETE to remove
+- Created src/app/api/push/vapid-key/route.ts: GET to expose VAPID public key to client
+- Updated src/app/layout.tsx: Viewport export (theme-color, device-width), metadataBase, manifest link, apple-touch-icon, apple-mobile-web-app-capable, appleWebApp config, PwaInit component
+- Updated src/app/page.tsx: imported NotificationPermission, added to main content area, footer badge updated to 'PWA'
+- Installed web-push + @types/web-push packages
+- Fixed all ESLint react-hooks/set-state-in-effect errors (lazy state init, derived values, callback patterns)
+
+Stage Summary:
+- 14 new files created for PWA infrastructure
+- Full PWA manifest with 3 icons (192x192, 512x512, 512x512 maskable)
+- Service Worker with offline caching, API caching, push notification support
+- Install prompt system with animated floating button, auto-dismiss, success feedback
+- Push notification system: VAPID key management, subscription API, send utilities
+- Notification permission request banner with delayed display
+- Browser-verified: manifest loaded, theme-color #059669, SW active, all assets 200
+- ESLint passes clean with 0 errors
