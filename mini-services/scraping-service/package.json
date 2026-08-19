@@ -1,0 +1,12 @@
+{
+  "name": "@qrdomotik/scraping-service",
+  "version": "1.0.0",
+  "description": "Service de scraping Playwright pour les promos Carrefour et Auchan — QR Domotik V3",
+  "scripts": {
+    "dev": "bun --hot index.ts"
+  },
+  "dependencies": {
+    "playwright": "^1.52.0",
+    "@prisma/client": "^6.8.2"
+  }
+}
