@@ -54,4 +54,34 @@ Stage Summary:
 - API Routes : 7 endpoints REST (auth/register, homes CRUD, rooms CRUD)
 - UI : Login/Register animé (Framer Motion), Dashboard responsive avec sidebar
 - Sécurité : Vérification membership sur chaque endpoint (RLS applicatif)
-- Prochaine étape : Étape 3 — Moteur de création QR Code (formulaire type + slug + téléchargement PNG)
+- Prochaine étape : Étape 3 — Moteur de création QR Code
+
+---
+Task ID: 3
+Agent: Main Architect
+Task: Étape 3 — Moteur de création QR Code (formulaire type + slug + PNG)
+
+Work Log:
+- Créé /api/qr-codes/route.ts (GET liste filtrée par homeId/roomId, POST création avec slug auto)
+- Créé /api/qr-codes/[id]/route.ts (GET, PATCH toggle/content, DELETE avec vérification rôle)
+- Créé /api/qr-codes/generate/route.ts (génération PNG via lib qrcode, encodage URL publique)
+- Mis à jour src/store/home-store.ts (ajout qrCodes, selectedRoomId, refreshQrCodes)
+- Construit QrTypeSelector — grille visuelle des 9 types avec icônes et descriptions
+- Construit le dialog de création QR : nom, type, pièce, PIN optionnel
+- Construit la grille de QR codes dans le dashboard avec badges couleur par type
+- Construit le dialog de preview : QR code rendu, slug copiable, boutons Télécharger PNG + Copier lien
+- Ajouté le toggle Actif/Désactivé sur chaque carte QR
+- Remplacé le composant Select par un select natif (correction crash Radix UI)
+- Vérifié le flow : Nouveau QR → Remplir formulaire → Création → Preview auto → Téléchargement
+- Vérifié l'endpoint PNG (HTTP 200, Content-Type: image/png, 2.8 KB)
+- Lint 0 erreurs
+
+Stage Summary:
+- 3 endpoints API QR codes (GET list, POST create, GET/PATCH/DELETE by id)
+- 1 endpoint génération PNG (/api/qr-codes/generate?slug=xxx&size=400)
+- Slug unique auto-généré (6 chars, crypto-secure)
+- Contenu JSON par défaut initialisé pour chaque type de module
+- Preview QR avec téléchargement PNG (600px) et copie du lien public
+- Toggle actif/désactivé pour chaque QR code
+- Filtrage par pièce dans le sidebar
+- Prochaine étape : Étape 4 — Pages publiques dynamiques (/r/[slug])
