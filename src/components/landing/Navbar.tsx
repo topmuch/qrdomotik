@@ -11,6 +11,7 @@ import {
   SheetDescription,
   SheetClose,
 } from '@/components/ui/sheet';
+import { useAuthStore } from '@/store/auth-store';
 
 const NAV_LINKS = [
   { label: 'Fonctionnalités', href: '#modules' },
@@ -29,6 +30,7 @@ function handleSmoothScroll(e: React.MouseEvent<HTMLAnchorElement>, href: string
 
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
+  const { openAuth } = useAuthStore();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -74,9 +76,19 @@ export function Navbar() {
             ))}
           </div>
 
-          {/* Desktop CTA */}
-          <div className="hidden md:block">
-            <Button className="rounded-full px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white hover:shadow-lg hover:shadow-blue-500/25 transition-all">
+          {/* Desktop CTAs */}
+          <div className="hidden md:flex items-center gap-3">
+            <Button
+              variant="ghost"
+              onClick={() => openAuth('login')}
+              className="rounded-full px-5 py-2.5 text-gray-700 hover:text-gray-900 hover:bg-gray-100 font-medium text-sm transition-all"
+            >
+              Connexion
+            </Button>
+            <Button
+              onClick={() => openAuth('register')}
+              className="rounded-full px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white hover:shadow-lg hover:shadow-blue-500/25 transition-all font-medium text-sm"
+            >
               Commencer gratuitement
             </Button>
           </div>
@@ -112,8 +124,21 @@ export function Navbar() {
                     </a>
                   </SheetClose>
                 ))}
+                <div className="border-t border-gray-200 my-2" />
                 <SheetClose asChild>
-                  <Button className="w-full mt-4 rounded-full bg-blue-600 hover:bg-blue-700 text-white hover:shadow-lg hover:shadow-blue-500/25 transition-all">
+                  <Button
+                    variant="outline"
+                    onClick={() => openAuth('login')}
+                    className="w-full rounded-full font-medium"
+                  >
+                    Connexion
+                  </Button>
+                </SheetClose>
+                <SheetClose asChild>
+                  <Button
+                    onClick={() => openAuth('register')}
+                    className="w-full rounded-full bg-blue-600 hover:bg-blue-700 text-white hover:shadow-lg hover:shadow-blue-500/25 transition-all font-medium"
+                  >
                     Commencer gratuitement
                   </Button>
                 </SheetClose>

@@ -4,6 +4,7 @@ import { ArrowRight, Apple, Smartphone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { FloatingParticles } from './FloatingParticles';
 import { QRCodeDemo } from './QRCodeDemo';
+import { useAuthStore } from '@/store/auth-store';
 
 function handleScrollToDemo(e: React.MouseEvent<HTMLAnchorElement>) {
   e.preventDefault();
@@ -27,6 +28,8 @@ const itemVariants = {
 };
 
 export function HeroSection() {
+  const { openAuth } = useAuthStore();
+
   return (
     <section
       className="relative min-h-screen overflow-hidden bg-white"
@@ -92,6 +95,7 @@ export function HeroSection() {
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.98 }}
+                onClick={() => openAuth('register')}
                 className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-lg px-8 py-4 rounded-xl hover:shadow-xl hover:shadow-blue-500/25 transition-all font-semibold"
               >
                 Créer mon premier QR code gratuit

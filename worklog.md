@@ -460,3 +460,33 @@ Stage Summary:
 - Effets wahou : cursor glow, floating particles, gradient blobs, scan line, count-up
 - Accessibilite ARIA, prefers-reduced-motion, semantic HTML
 - Responsive mobile-first, 0 erreur ESLint, HTTP 200
+
+---
+Task ID: login-page-rebuild
+Agent: Main Orchestrator
+Task: Refaire la page de connexion / Recreate login page
+
+Work Log:
+- Created Zustand auth store (src/store/auth-store.ts) for shared dialog open/close state
+- Built AuthDialog component (src/components/landing/AuthDialog.tsx) with:
+  - Login and Register tabs with animated sliding indicator
+  - Glassmorphism design with gradient header bar and decorative blobs
+  - Framer Motion animations for tab transitions and field entrance
+  - Password visibility toggle
+  - Form validation with toast error messages
+  - Full integration with NextAuth signIn and /api/auth/register
+  - Auto-login after successful registration
+  - Trust badges (Données sécurisées, Gratuit pour toujours)
+- Updated Navbar.tsx: Added "Connexion" ghost button + wired "Commencer gratuitement" to openAuth
+- Updated HeroSection.tsx: Wired "Créer mon premier QR code gratuit" CTA to openAuth('register')
+- Updated FinalCTA.tsx: Wired "Créer mon compte gratuit" CTA to openAuth('register')
+- Updated page.tsx: Added AuthDialog component
+- Fixed initial error from mixing Radix Dialog animations with Framer Motion AnimatePresence on DialogContent
+- Browser verified all interactions: Navbar Connexion/CTA, Hero CTA, Final CTA, mobile menu, tab switching
+
+Stage Summary:
+- 4 files modified: AuthDialog.tsx (new), Navbar.tsx, HeroSection.tsx, FinalCTA.tsx, page.tsx
+- 1 new store: src/store/auth-store.ts
+- Auth dialog opens from 5 entry points: Navbar Connexion, Navbar CTA, Hero CTA, Final CTA, Mobile menu
+- Login opens with email+password form; Register opens with name+email+password+confirm
+- All browser interactions verified successfully via agent-browser

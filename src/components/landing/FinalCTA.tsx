@@ -4,8 +4,11 @@ import { motion } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
 import { ScrollReveal } from './ScrollReveal';
 import { FloatingParticles } from './FloatingParticles';
+import { useAuthStore } from '@/store/auth-store';
 
 export function FinalCTA() {
+  const { openAuth } = useAuthStore();
+
   return (
     <section className="py-24 md:py-32 relative overflow-hidden" aria-label="Appel à l'action final">
       <style>{`
@@ -42,6 +45,7 @@ export function FinalCTA() {
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.98 }}
+              onClick={() => openAuth('register')}
               className="inline-flex items-center gap-2 bg-white text-blue-600 hover:bg-blue-50 rounded-xl px-10 py-4 text-lg font-semibold shadow-xl transition-colors"
               aria-label="Créer mon compte gratuit"
             >

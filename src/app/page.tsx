@@ -12,6 +12,7 @@ import { FAQ } from '@/components/landing/FAQ';
 import { FinalCTA } from '@/components/landing/FinalCTA';
 import { Footer } from '@/components/landing/Footer';
 import { CursorGlow } from '@/components/landing/CursorGlow';
+import { AuthDialog } from '@/components/landing/AuthDialog';
 
 export default function LandingPage() {
   return (
@@ -30,6 +31,7 @@ export default function LandingPage() {
         <FinalCTA />
       </main>
       <Footer />
+      <AuthDialog />
     </div>
   );
 }
