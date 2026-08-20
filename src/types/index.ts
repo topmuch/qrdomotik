@@ -825,3 +825,67 @@ export interface CommissionConfig {
   defaultAmount: number;
   description: string;
 }
+
+// █████████████████████████████████████████████████████████████████████████████████
+// ██  V4 — QR CODES PHYSIQUES & ACTIVATION                             ██
+// █████████████████████████████████████████████████████████████████████████████████
+
+// ─── User Roles ─────────────────────────────────────────────────────────
+
+export type UserRole = 'user' | 'superadmin';
+
+// ─── Physical QR Code Status ────────────────────────────────────────────
+
+export type PhysicalQrStatus = 'inactive' | 'active' | 'lost' | 'cancelled';
+
+export const PHYSICAL_QR_STATUS_LABELS: Record<PhysicalQrStatus, string> = {
+  inactive: 'Inactif',
+  active: 'Activé',
+  lost: 'Perdu',
+  cancelled: 'Annulé',
+};
+
+export const PHYSICAL_QR_STATUS_COLORS: Record<PhysicalQrStatus, string> = {
+  inactive: 'bg-gray-100 text-gray-700',
+  active: 'bg-emerald-100 text-emerald-800',
+  lost: 'bg-amber-100 text-amber-800',
+  cancelled: 'bg-red-100 text-red-800',
+};
+
+// ─── Activation Log Actions ─────────────────────────────────────────────
+
+export type ActivationAction = 'activated' | 'deactivated' | 'marked_lost' | 'cancelled';
+
+export const ACTIVATION_ACTION_LABELS: Record<ActivationAction, string> = {
+  activated: 'Activé',
+  deactivated: 'Désactivé',
+  marked_lost: 'Marqué perdu',
+  cancelled: 'Annulé',
+};
+
+// ─── Design Config ──────────────────────────────────────────────────────
+
+export type DotStyle = 'square' | 'rounded' | 'dots' | 'classy' | 'classy-rounded' | 'extra-rounded';
+
+export interface DesignConfig {
+  color: string;         // hex: "#2563EB"
+  logoUrl?: string;      // URL du logo central
+  dotStyle: DotStyle;    // style des points du QR
+  backgroundColor?: string;
+}
+
+// ─── Batch Quantities ───────────────────────────────────────────────────
+
+export const BATCH_QUANTITIES = [10, 15, 20] as const;
+export type BatchQuantity = (typeof BATCH_QUANTITIES)[number];
+
+// ─── Dot Style Options ──────────────────────────────────────────────────
+
+export const DOT_STYLE_OPTIONS: Record<DotStyle, string> = {
+  square: 'Carré',
+  rounded: 'Arrondi',
+  dots: 'Pointillé',
+  classy: 'Classique',
+  'classy-rounded': 'Classique arrondi',
+  'extra-rounded': 'Très arrondi',
+};

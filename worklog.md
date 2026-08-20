@@ -490,3 +490,33 @@ Stage Summary:
 - Auth dialog opens from 5 entry points: Navbar Connexion, Navbar CTA, Hero CTA, Final CTA, Mobile menu
 - Login opens with email+password form; Register opens with name+email+password+confirm
 - All browser interactions verified successfully via agent-browser
+
+---
+Task ID: 1
+Agent: Main Orchestrator
+Task: ÉTAPE 1 — Schéma DB pour QR Codes Physiques & Activation (V4)
+
+Work Log:
+- Analysé le schéma existant (26 tables, SQLite + Prisma)
+- Ajouté le champ `role` ('user'|'superadmin') au modèle User avec default 'user'
+- Ajouté les relations V4 sur User: createdBatches, activatedQrCodes, activationLogs
+- Ajouté la relation physicalActivations sur QrCode (lien inverse vers PhysicalQrCode)
+- Créé 3 nouvelles tables Prisma:
+  - QrBatch (TABLE 27): lots générés par superadmin (quantity, designConfigJson, createdBy)
+  - PhysicalQrCode (TABLE 28): QR physiques individuels (activationCode UNIQUE, status, dynamicQrCodeId UNIQUE)
+  - ActivationLog (TABLE 29): historique d'audit (action, details, userId)
+- Ajouté les types TypeScript V4 dans types/index.ts:
+  - UserRole, PhysicalQrStatus, ActivationAction
+  - DesignConfig, DotStyle, BatchQuantity
+  - Labels et couleurs pour l'UI (PHYSICAL_QR_STATUS_LABELS, ACTIVATION_ACTION_LABELS, DOT_STYLE_OPTIONS)
+- Push du schéma en DB: 29 tables, 15 index sur les 3 nouvelles tables
+- Prisma Client regénéré, lint passe
+
+Stage Summary:
+- 29 tables totales (26 existantes + 3 nouvelles V4)
+- Champ User.role ajouté avec default 'user'
+- activation_code est UNIQUE sur physical_qr_codes
+- dynamic_qr_code_id est UNIQUE nullable (un lien 1:1 vers le QR dynamique)
+- design_config_json hérité du batch au niveau de chaque QR physique
+- Index: status, batch_id, activationCode, activatedByUserId sur physical_qr_codes
+- Types et constantes UI prêts pour les étapes suivantes

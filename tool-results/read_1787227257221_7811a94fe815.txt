@@ -1,0 +1,621 @@
+   168→  publicSlug    String   @unique @map("public_slug")
+   169→  isActive      Boolean  @default(true) @map("is_active")
+   170→  isPrivate     Boolean  @default(false) @map("is_private")
+   171→  pinCode       String?  @map("pin_code")
+   172→  isPresentMode Boolean  @default(true) @map("is_present_mode")
+   173→  createdAt     DateTime @default(now()) @map("created_at")
+   174→  updatedAt     DateTime @updatedAt @map("updated_at")
+   175→
+   176→  home            Home            @relation(fields: [homeId], references: [id], onDelete: Cascade)
+   177→  room            Room?           @relation(fields: [roomId], references: [id], onDelete: SetNull)
+   178→  content         QrContent?
+   179→  activityLogs    ActivityLog[]
+   180→  guestbookEntries GuestbookEntry[]
+   181→  serviceRequests  ServiceRequest[]
+   182→  emergencyConfig  EmergencyQrCode?
+   183→
+   184→  @@index([homeId])
+   185→  @@index([publicSlug])
+   186→  @@index([type])
+   187→  @@map("qr_codes")
+   188→}
+   189→
+   190→/*
+   191→  ┌──────────────────────────────────────────────────────────────────┐
+   192→  │  TYPES DE QR CODES (QrType) — V1 + V2 + V3                      │
+   193→  ├──────────────────────────────────────────────────────────────────┤
+   194→  │  V1:                                                            │
+   195→  │  "wifi"          → Connexion Wi-Fi                              │
+   196→  │  "link"          → Lien externe                                  │
+   197→  │  "info"          → Guide maison                                 │
+   198→  │  "postit"        → Post-it numérique                             │
+   199→  │  "shopping_list" → Liste de courses collaborative               │
+   200→  │  "doorman"       → Portier virtuel                              │
+   201→  │  "medication"    → Suivi médicaments                            │
+   202→  │  "chores"        → Corvées enfants gamifiées                    │
+   203→  │  "stock_dlc"     → Gestion stock & DLC                          │
+   204→  │                                                                  │
+   205→  │  V2:                                                            │
+   206→  │  "guestbook"      → Livre d'or                                  │
+   207→  │  "energy_counter" → Compteur d'énergie                          │
+   208→  │  "keys_tracker"   → Suivi des clés                              │
+   209→  │  "daily_menu"     → Menu du jour                                │
+   210→  │                                                                  │
+   211→  │  V3 (ajouts):                                                    │
+   212→  │  "emergency_service" → QR code d'urgence artisan               │
+   213→  │  "neighborhood"      → QR code quartier (carte commerces)      │
+   214→  └──────────────────────────────────────────────────────────────────┘
+   215→*/
+   216→
+   217→// ═══════════════════════════════════════════════════════════════════
+   218→// TABLE 6 : QR_CONTENTS — Contenu dynamique de chaque QR code
+   219→// ═══════════════════════════════════════════════════════════════════
+   220→
+   221→model QrContent {
+   222→  id          String   @id @default(cuid())
+   223→  qrCodeId    String   @unique @map("qr_code_id")
+   224→  contentJson String   @map("content_json")
+   225→  updatedAt   DateTime @updatedAt @map("updated_at")
+   226→
+   227→  qrCode QrCode @relation(fields: [qrCodeId], references: [id], onDelete: Cascade)
+   228→
+   229→  @@map("qr_contents")
+   230→}
+   231→
+   232→// ═══════════════════════════════════════════════════════════════════════════════
+   233→// TABLE 7 : ACTIVITY_LOGS — Journal d'activité global
+   234→// ═══════════════════════════════════════════════════════════════════════════════
+   235→
+   236→model ActivityLog {
+   237→  id          String   @id @default(cuid())
+   238→  homeId      String   @map("home_id")
+   239→  qrCodeId    String?  @map("qr_code_id")
+   240→  userId      String?  @map("user_id")
+   241→  actionType  String   @map("action_type")
+   242→  detailsJson String?  @map("details_json")
+   243→  visitorName String?  @map("visitor_name")
+   244→  createdAt   DateTime @default(now()) @map("created_at")
+   245→
+   246→  home    Home    @relation(fields: [homeId], references: [id], onDelete: Cascade)
+   247→  qrCode  QrCode? @relation(fields: [qrCodeId], references: [id], onDelete: SetNull)
+   248→  user    User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+   249→
+   250→  @@index([homeId])
+   251→  @@index([qrCodeId])
+   252→  @@index([userId])
+   253→  @@index([actionType])
+   254→  @@index([createdAt])
+   255→  @@map("activity_logs")
+   256→}
+   257→
+   258→// ═══════════════════════════════════════════════════════════════════════════════
+   259→// TABLE 8 : PRODUCTS — Produits pour le module Stock & DLC
+   260→// ═══════════════════════════════════════════════════════════════════════════════
+   261→
+   262→model Product {
+   263→  id                 String   @id @default(cuid())
+   264→  homeId             String   @map("home_id")
+   265→  name               String
+   266→  category           String   @default("autre")
+   267→  minStockThreshold  Int      @default(1) @map("min_stock_threshold")
+   268→  currentStock       Int      @default(0) @map("current_stock")
+   269→  isOnShoppingList   Boolean  @default(false) @map("is_on_shopping_list")
+   270→  createdAt          DateTime @default(now()) @map("created_at")
+   271→  updatedAt          DateTime @updatedAt @map("updated_at")
+   272→
+   273→  home             Home              @relation(fields: [homeId], references: [id], onDelete: Cascade)
+   274→  productInstances ProductInstance[]
+   275→
+   276→  @@index([homeId])
+   277→  @@map("products")
+   278→}
+   279→
+   280→// ═══════════════════════════════════════════════════════════════════════════════
+   281→// TABLE 9 : PRODUCT_INSTANCES — Instances de produits
+   282→// ═══════════════════════════════════════════════════════════════════════════════
+   283→
+   284→model ProductInstance {
+   285→  id           String    @id @default(cuid())
+   286→  productId    String    @map("product_id")
+   287→  homeId       String    @map("home_id")
+   288→  purchaseDate DateTime? @map("purchase_date")
+   289→  expiryDate   DateTime  @map("expiry_date")
+   290→  status       String    @default("fresh")
+   291→  createdAt    DateTime  @default(now()) @map("created_at")
+   292→  updatedAt    DateTime  @updatedAt @map("updated_at")
+   293→
+   294→  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+   295→
+   296→  @@index([productId])
+   297→  @@index([homeId])
+   298→  @@index([expiryDate])
+   299→  @@index([status])
+   300→  @@map("product_instances")
+   301→}
+   302→
+   303→// ═══════════════════════════════════════════════════════════════════════════════
+   304→// TABLE 10 : CHORES — Corvées enfants (V2)
+   305→// ═══════════════════════════════════════════════════════════════════════════════
+   306→
+   307→model Chore {
+   308→  id                String   @id @default(cuid())
+   309→  homeId            String   @map("home_id")
+   310→  title             String
+   311→  description       String?
+   312→  pointsValue       Int      @default(10) @map("points_value")
+   313→  frequency         String   @default("once")
+   314→  assignedToUserId  String?  @map("assigned_to_user_id")
+   315→  isActive          Boolean  @default(true) @map("is_active")
+   316→  createdAt         DateTime @default(now()) @map("created_at")
+   317→  updatedAt         DateTime @updatedAt @map("updated_at")
+   318→
+   319→  home              Home              @relation(fields: [homeId], references: [id], onDelete: Cascade)
+   320→  assignedToUser    User?             @relation("ChoreAssignee", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+   321→  completions       ChoreCompletion[]
+   322→
+   323→  @@index([homeId])
+   324→  @@index([assignedToUserId])
+   325→  @@map("chores")
+   326→}
+   327→
+   328→// ═══════════════════════════════════════════════════════════════════════════════
+   329→// TABLE 11 : CHORE_COMPLETIONS — Validations de corvées (V2)
+   330→// ═══════════════════════════════════════════════════════════════════════════════
+   331→
+   332→model ChoreCompletion {
+   333→  id               String    @id @default(cuid())
+   334→  choreId          String    @map("chore_id")
+   335→  childUserId      String    @map("child_user_id")
+   336→  validatedByUserId String?  @map("validated_by_user_id")
+   337→  pointsEarned     Int       @default(0) @map("points_earned")
+   338→  completedAt      DateTime  @default(now()) @map("completed_at")
+   339→  validatedAt      DateTime? @map("validated_at")
+   340→  status           String    @default("pending_validation")
+   341→  createdAt        DateTime  @default(now()) @map("created_at")
+   342→
+   343→  chore          Chore            @relation(fields: [choreId], references: [id], onDelete: Cascade)
+   344→  childUser      User             @relation("ChildCompletions", fields: [childUserId], references: [id], onDelete: Cascade)
+   345→  validatedByUser User?           @relation("ValidatorCompletions", fields: [validatedByUserId], references: [id], onDelete: SetNull)
+   346→
+   347→  @@index([choreId])
+   348→  @@index([childUserId])
+   349→  @@index([status])
+   350→  @@map("chore_completions")
+   351→}
+   352→
+   353→// ═══════════════════════════════════════════════════════════════════════════════
+   354→// TABLE 12 : INVITATIONS — Invitations de membres (V2)
+   355→// ═══════════════════════════════════════════════════════════════════════════════
+   356→
+   357→model Invitation {
+   358→  id         String   @id @default(cuid())
+   359→  homeId     String   @map("home_id")
+   360→  inviterId  String   @map("inviter_id")
+   361→  email      String
+   362→  role       String   @default("member")
+   363→  token      String   @unique
+   364→  status     String   @default("pending")
+   365→  nickname   String?
+   366→  expiresAt  DateTime @map("expires_at")
+   367→  createdAt  DateTime @default(now()) @map("created_at")
+   368→
+   369→  home    Home   @relation(fields: [homeId], references: [id], onDelete: Cascade)
+   370→  inviter User   @relation("Inviter", fields: [inviterId], references: [id], onDelete: Cascade)
+   371→
+   372→  @@index([homeId])
+   373→  @@index([email])
+   374→  @@index([token])
+   375→  @@index([status])
+   376→  @@map("invitations")
+   377→}
+   378→
+   379→// ═══════════════════════════════════════════════════════════════════════════════
+   380→// TABLE 13 : GUESTBOOK_ENTRIES — Livre d'or (V2)
+   381→// ═══════════════════════════════════════════════════════════════════════════════
+   382→
+   383→model GuestbookEntry {
+   384→  id        String   @id @default(cuid())
+   385→  qrCodeId  String   @map("qr_code_id")
+   386→  guestName String   @map("guest_name")
+   387→  message   String
+   388→  createdAt DateTime @default(now()) @map("created_at")
+   389→
+   390→  qrCode QrCode @relation(fields: [qrCodeId], references: [id], onDelete: Cascade)
+   391→
+   392→  @@index([qrCodeId])
+   393→  @@index([createdAt])
+   394→  @@map("guestbook_entries")
+   395→}
+   396→
+   397→// ═══════════════════════════════════════════════════════════════════════════════
+   398→// TABLE 14 : PUSH_SUBSCRIPTIONS — Abonnements Push PWA (V2)
+   399→// ═══════════════════════════════════════════════════════════════════════════════
+   400→
+   401→model PushSubscription {
+   402→  id        String   @id @default(cuid())
+   403→  userId    String   @map("user_id")
+   404→  homeId    String?  @map("home_id")  // V3: optionnel, pour filtrer par maison
+   405→  endpoint  String
+   406→  p256dhKey String   @map("p256dh_key")
+   407→  authKey   String   @map("auth_key")
+   408→  createdAt DateTime @default(now()) @map("created_at")
+   409→
+   410→  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+   411→
+   412→  @@index([userId])
+   413→  @@map("push_subscriptions")
+   414→}
+   415→
+   416→// ═══════════════════════════════════════════════════════════════════════════════
+   417→// TABLE 15 : NOTIFICATIONS — Notifications in-app (V2)
+   418→// ═══════════════════════════════════════════════════════════════════════════════
+   419→
+   420→model Notification {
+   421→  id          String   @id @default(cuid())
+   422→  userId      String   @map("user_id")
+   423→  homeId      String?  @map("home_id")     // V3: nullable (notifications pro sans home)
+   424→  type        String
+   425→  title       String
+   426→  body        String?
+   427→  dataJson    String?  @map("data_json")
+   428→  isRead      Boolean  @default(false) @map("is_read")
+   429→  createdAt   DateTime @default(now()) @map("created_at")
+   430→
+   431→  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+   432→  home Home? @relation(fields: [homeId], references: [id], onDelete: Cascade)
+   433→
+   434→  @@index([userId])
+   435→  @@index([type])
+   436→  @@index([isRead])
+   437→  @@index([createdAt])
+   438→  @@map("notifications")
+   439→}
+   440→
+   441→// █████████████████████████████████████████████████████████████████████████████████
+   442→// ██  V3 — MODULE A : MON QUARTIER CONNECTÉ (Commerçants & Promos)             ██
+   443→// █████████████████████████████████████████████████████████████████████████████████
+   444→
+   445→// ═══════════════════════════════════════════════════════════════════════════════
+   446→// TABLE 16 : MERCHANTS — Commerçants locaux
+   447→// ═══════════════════════════════════════════════════════════════════════════════
+   448→// Inscription gratuite, abonnement premium/featured payant.
+   449→// Geo: latitude/longitude pour affichage carte Leaflet + calcul distance.
+   450→// openingHoursJson: JSON string → { "monday": "9h-19h", ... }
+   451→
+   452→model Merchant {
+   453→  id                    String    @id @default(cuid())
+   454→  userId                String?   @unique @map("user_id")    // Nullable: le commerçant peut ne pas avoir de compte
+   455→  name                  String
+   456→  category              String                             // 'boulangerie','boucherie','pharmacie','epicerie','fleuriste'...
+   457→  description           String?
+   458→  address               String?
+   459→  latitude              Float                              // PostGIS → lat/lng + Haversine
+   460→  longitude             Float
+   461→  phone                 String?
+   462→  website               String?   @map("website")
+   463→  openingHoursJson      String?   @map("opening_hours_json")  // JSON: {"monday":"9h-19h",...}
+   464→  logoUrl               String?   @map("logo_url")
+   465→  subscriptionTier      String    @default("free") @map("subscription_tier") // 'free'|'premium'|'featured'
+   466→  subscriptionExpiresAt DateTime? @map("subscription_expires_at")
+   467→  stripeCustomerId      String?   @map("stripe_customer_id")
+   468→  isVerified            Boolean   @default(false) @map("is_verified")
+   469→  ratingAvg             Float     @default(0) @map("rating_avg")
+   470→  totalReviews          Int       @default(0) @map("total_reviews")
+   471→  isActive              Boolean   @default(true) @map("is_active")
+   472→  createdAt             DateTime  @default(now()) @map("created_at")
+   473→  updatedAt             DateTime  @updatedAt @map("updated_at")
+   474→
+   475→  // ─── Relations ───
+   476→  user    User?   @relation("MerchantUser", fields: [userId], references: [id], onDelete: SetNull)
+   477→  promos  Promo[]
+   478→
+   479→  @@index([category])
+   480→  @@index([latitude])
+   481→  @@index([longitude])
+   482→  @@index([isActive])
+   483→  @@index([subscriptionTier])
+   484→  @@map("merchants")
+   485→}
+   486→
+   487→// ═══════════════════════════════════════════════════════════════════════════════
+   488→// TABLE 17 : PROMOS — Promotions locales ET scrapées
+   489→// ═══════════════════════════════════════════════════════════════════════════════
+   490→// source='local' → créée par un commerçant
+   491→// source='scraped' → récupérée par le script Playwright (Carrefour, Auchan...)
+   492→// keywordsJson: JSON array string → ["pain", "baguette", "viennoiserie"]
+   493→
+   494→model Promo {
+   495→  id                    String    @id @default(cuid())
+   496→  merchantId            String?   @map("merchant_id")    // NULL si promo scrapée grande surface
+   497→  source                String    @default("local")      // 'local' | 'scraped'
+   498→  title                 String
+   499→  description           String?
+   500→  imageUrl              String?   @map("image_url")
+   501→  originalPrice         Float?    @map("original_price")
+   502→  promoPrice            Float     @map("promo_price")
+   503→  validFrom             DateTime? @map("valid_from")
+   504→  validUntil            DateTime  @map("valid_until")
+   505→  keywordsJson          String    @default("[]") @map("keywords_json") // JSON array
+   506→  category              String?                              // Pour filtrage par catégorie
+   507→  isFlashSale           Boolean   @default(false) @map("is_flash_sale")
+   508→  flashSaleTriggeredAt  DateTime? @map("flash_sale_triggered_at")
+   509→  flashSaleCost         Float?    @map("flash_sale_cost")        // 0.50 € payé par le commerçant
+   510→  viewsCount            Int       @default(0) @map("views_count")
+   511→  redemptionsCount      Int       @default(0) @map("redemptions_count")
+   512→  createdAt             DateTime  @default(now()) @map("created_at")
+   513→  updatedAt             DateTime  @updatedAt @map("updated_at")
+   514→
+   515→  // ─── Relations ───
+   516→  merchant   Merchant?          @relation(fields: [merchantId], references: [id], onDelete: SetNull)
+   517→  redemptions PromoRedemption[]
+   518→
+   519→  @@index([merchantId])
+   520→  @@index([source])
+   521→  @@index([validUntil])
+   522→  @@index([isFlashSale])
+   523→  @@index([category])
+   524→  @@index([keywordsJson])
+   525→  @@map("promos")
+   526→}
+   527→
+   528→// ═══════════════════════════════════════════════════════════════════════════════
+   529→// TABLE 18 : PROMO_REDEMPTIONS — Coupons utilisés
+   530→// ═══════════════════════════════════════════════════════════════════════════════
+   531→
+   532→model PromoRedemption {
+   533→  id               String   @id @default(cuid())
+   534→  promoId          String   @map("promo_id")
+   535→  userId           String   @map("user_id")
+   536→  redeemedAt       DateTime @default(now()) @map("redeemed_at")
+   537→  commissionAmount Float    @default(0) @map("commission_amount")
+   538→
+   539→  // ─── Relations ───
+   540→  promo Promo @relation(fields: [promoId], references: [id], onDelete: Cascade)
+   541→  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+   542→
+   543→  @@index([promoId])
+   544→  @@index([userId])
+   545→  @@index([redeemedAt])
+   546→  @@map("promo_redemptions")
+   547→}
+   548→
+   549→// ═══════════════════════════════════════════════════════════════════════════════
+   550→// TABLE 19 : SCRAPING_JOBS — Logs des tâches de scraping
+   551→// ═══════════════════════════════════════════════════════════════════════════════
+   552→
+   553→model ScrapingJob {
+   554→  id              String    @id @default(cuid())
+   555→  source          String                              // 'carrefour','auchan','leclerc'
+   556→  storeLocation   String    @map("store_location")
+   557→  status          String    @default("running")      // 'running'|'success'|'failed'
+   558→  productsScraped Int       @default(0) @map("products_scraped")
+   559→  errorMessage    String?   @map("error_message")
+   560→  startedAt       DateTime  @default(now()) @map("started_at")
+   561→  finishedAt      DateTime? @map("finished_at")
+   562→
+   563→  @@index([source])
+   564→  @@index([status])
+   565→  @@index([startedAt])
+   566→  @@map("scraping_jobs")
+   567→}
+   568→
+   569→// █████████████████████████████████████████████████████████████████████████████████
+   570→// ██  V3 — MODULE B : SERVICES À LA PERSONNE (Artisans & Prestataires)       ██
+   571→// █████████████████████████████████████████████████████████████████████████████████
+   572→
+   573→// ═══════════════════════════════════════════════════════════════════════════════
+   574→// TABLE 20 : PROFESSIONALS — Artisans & prestataires
+   575→// ═══════════════════════════════════════════════════════════════════════════════
+   576→// 4 catégories: entretien, depannage, bien_etre, assistance
+   577→// verificationDocsJson: JSON string → [{"type":"kbis","url":"..."}, ...]
+   578→// portfolioImagesJson: JSON array string → ["url1","url2",...]
+   579→
+   580→model Professional {
+   581→  id                       String    @id @default(cuid())
+   582→  userId                   String    @unique @map("user_id")  // Un pro a obligatoirement un compte
+   583→  businessName              String    @map("business_name")
+   584→  category                 String                              // 'plumber','electrician','locksmith','cleaner'...
+   585→  subcategory              String?   @map("subcategory")
+   586→  description              String?
+   587→  latitude                 Float
+   588→  longitude                Float
+   589→  serviceRadiusKm          Int       @default(10) @map("service_radius_km")
+   590→  hourlyRate               Float     @map("hourly_rate")
+   591→  isUrgentAvailable        Boolean   @default(false) @map("is_urgent_available")
+   592→  isVerified               Boolean   @default(false) @map("is_verified")
+   593→  verificationDocsJson     String    @default("[]") @map("verification_docs_json")
+   594→  portfolioImagesJson      String    @default("[]") @map("portfolio_images_json")
+   595→  subscriptionStatus       String    @default("free") @map("subscription_status") // 'free'|'premium'|'featured'
+   596→  subscriptionExpiresAt    DateTime? @map("subscription_expires_at")
+   597→  stripeCustomerId         String?   @map("stripe_customer_id")
+   598→  ratingAvg                Float     @default(0) @map("rating_avg")
+   599→  totalReviews             Int       @default(0) @map("total_reviews")
+   600→  responseTimeMinutes      Int?      @map("response_time_minutes")
+   601→  totalJobsCompleted       Int       @default(0) @map("total_jobs_completed")
+   602→  isActive                 Boolean   @default(true) @map("is_active")
+   603→  createdAt                DateTime  @default(now()) @map("created_at")
+   604→  updatedAt                DateTime  @updatedAt @map("updated_at")
+   605→
+   606→  // ─── Relations ───
+   607→  user        User            @relation("ProfessionalUser", fields: [userId], references: [id], onDelete: Cascade)
+   608→  services    Service[]
+   609→  reviews     Review[]
+   610→  requests    ServiceRequest[]
+   611→  subscriptions Subscription[]
+   612→
+   613→  @@index([category])
+   614→  @@index([latitude])
+   615→  @@index([longitude])
+   616→  @@index([isActive])
+   617→  @@index([isVerified])
+   618→  @@index([isUrgentAvailable])
+   619→  @@map("professionals")
+   620→}
+   621→
+   622→// ═══════════════════════════════════════════════════════════════════════════════
+   623→// TABLE 21 : SERVICES — Services proposés par un pro
+   624→// ═══════════════════════════════════════════════════════════════════════════════
+   625→
+   626→model Service {
+   627→  id               String   @id @default(cuid())
+   628→  professionalId   String   @map("professional_id")
+   629→  name             String
+   630→  description      String?
+   631→  basePrice        Float    @map("base_price")
+   632→  priceUnit        String   @default("hour") @map("price_unit") // 'hour'|'flat_rate'|'estimate'
+   633→  durationMinutes  Int?     @map("duration_minutes")
+   634→  isUrgent         Boolean  @default(false) @map("is_urgent")
+   635→  isActive         Boolean  @default(true) @map("is_active")
+   636→
+   637→  // ─── Relations ───
+   638→  professional  Professional      @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+   639→  serviceRequests ServiceRequest[]
+   640→
+   641→  @@index([professionalId])
+   642→  @@index([isActive])
+   643→  @@map("services")
+   644→}
+   645→
+   646→// ═══════════════════════════════════════════════════════════════════════════════
+   647→// TABLE 22 : SERVICE_REQUESTS — Demandes de réservation
+   648→// ═════════════════════════════════════════════════════════════════════════════════
+   649→// photosJson: JSON array string → ["url1","url2",...]
+   650→
+   651→model ServiceRequest {
+   652→  id               String    @id @default(cuid())
+   653→  homeId           String    @map("home_id")
+   654→  professionalId    String    @map("professional_id")
+   655→  serviceId        String?   @map("service_id")
+   656→  qrCodeId         String?   @map("qr_code_id")         // Si déclenché par QR urgence
+   657→  status           String    @default("pending")         // 'pending'|'accepted'|'in_progress'|'completed'|'cancelled'|'disputed'
+   658→  description      String?
+   659→  photosJson       String    @default("[]") @map("photos_json")
+   660→  preferredDate    DateTime? @map("preferred_date")
+   661→  urgencyLevel     String    @default("normal") @map("urgency_level") // 'normal'|'urgent'|'emergency'
+   662→  address          String?
+   663→  finalPrice       Float?    @map("final_price")
+   664→  commissionAmount Float?    @map("commission_amount")
+   665→  paidAt           DateTime? @map("paid_at")
+   666→  createdAt        DateTime  @default(now()) @map("created_at")
+   667→  updatedAt        DateTime  @updatedAt @map("updated_at")
+   668→
+   669→  // ─── Relations ───
+   670→  home         Home          @relation(fields: [homeId], references: [id], onDelete: Cascade)
+   671→  professional Professional   @relation(fields: [professionalId], references: [id])
+   672→  service      Service?      @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+   673→  qrCode       QrCode?       @relation(fields: [qrCodeId], references: [id], onDelete: SetNull)
+   674→  review       Review?
+   675→
+   676→  @@index([homeId])
+   677→  @@index([professionalId])
+   678→  @@index([serviceId])
+   679→  @@index([status])
+   680→  @@index([urgencyLevel])
+   681→  @@index([createdAt])
+   682→  @@map("service_requests")
+   683→}
+   684→
+   685→// ═══════════════════════════════════════════════════════════════════════════════
+   686→// TABLE 23 : REVIEWS — Avis après intervention
+   687→// ═══════════════════════════════════════════════════════════════════════════════
+   688→// Application-level validation: rating must be 1-5.
+   689→
+   690→model Review {
+   691→  id               String   @id @default(cuid())
+   692→  serviceRequestId String   @unique @map("service_request_id")
+   693→  professionalId   String   @map("professional_id")
+   694→  userId           String   @map("user_id")
+   695→  rating           Int                                  // 1-5, validé applicativement
+   696→  comment          String?
+   697→  createdAt        DateTime @default(now()) @map("created_at")
+   698→
+   699→  // ─── Relations ───
+   700→  serviceRequest ServiceRequest @relation(fields: [serviceRequestId], references: [id], onDelete: Cascade)
+   701→  professional   Professional   @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+   702→  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+   703→
+   704→  @@index([professionalId])
+   705→  @@index([userId])
+   706→  @@index([rating])
+   707→  @@map("reviews")
+   708→}
+   709→
+   710→// ═══════════════════════════════════════════════════════════════════════════════
+   711→// TABLE 24 : EMERGENCY_QR_CODES — Configuration QR codes d'urgence
+   712→// ═════════════════════════════════════════════════════════════════════════════
+   713→// Un QR code de type 'emergency_service' est lié à cette config.
+   714→// equipmentInfoJson: JSON → {"boiler_model":"Chaffoteau 2019", ...}
+   715→
+   716→model EmergencyQrCode {
+   717→  id               String   @id @default(cuid())
+   718→  qrCodeId         String   @unique @map("qr_code_id")
+   719→  emergencyCategory String   @map("emergency_category") // 'plumber'|'electrician'|'locksmith'|'heating'
+   720→  equipmentInfoJson String  @default("{}") @map("equipment_info_json")
+   721→  isActive         Boolean  @default(true) @map("is_active")
+   722→
+   723→  // ─── Relations ───
+   724→  qrCode QrCode @relation(fields: [qrCodeId], references: [id], onDelete: Cascade)
+   725→
+   726→  @@index([emergencyCategory])
+   727→  @@index([isActive])
+   728→  @@map("emergency_qr_codes")
+   729→}
+   730→
+   731→// █████████████████████████████████████████████████████████████████████████████████
+   732→// ██  V3 — MONÉTISATION UNIFIÉE                                             ██
+   733→// █████████████████████████████████████████████████████████████████████████████████
+   734→
+   735→// ═══════════════════════════════════════════════════════════════════════════════
+   736→// TABLE 25 : SUBSCRIPTIONS — Abonnements pros/commerçants
+   737→// ═══════════════════════════════════════════════════════════════════════════════
+   738→
+   739→model Subscription {
+   740→  id                   String   @id @default(cuid())
+   741→  subscriberId         String   @map("subscriber_id")
+   742→  subscriberType       String   @map("subscriber_type") // 'merchant' | 'professional'
+   743→  plan                 String                             // 'premium' | 'featured'
+   744→  amount               Float
+   745→  currency             String   @default("EUR")
+   746→  stripeSubscriptionId String?  @map("stripe_subscription_id")
+   747→  status               String   @default("active")     // 'active'|'cancelled'|'past_due'
+   748→  currentPeriodStart   DateTime @map("current_period_start")
+   749→  currentPeriodEnd     DateTime @map("current_period_end")
+   750→  createdAt            DateTime @default(now()) @map("created_at")
+   751→
+   752→  // ─── Relations ───
+   753→  professional Professional? @relation(fields: [subscriberId], references: [id], onDelete: Cascade)
+   754→
+   755→  @@index([subscriberId])
+   756→  @@index([subscriberType])
+   757→  @@index([status])
+   758→  @@index([currentPeriodEnd])
+   759→  @@map("subscriptions")
+   760→}
+   761→
+   762→// ═══════════════════════════════════════════════════════════════════════════════
+   763→// TABLE 26 : TRANSACTIONS — Micro-paiements et commissions
+   764→// ═══════════════════════════════════════════════════════════════════════════════
+   765→
+   766→model Transaction {
+   767→  id                String   @id @default(cuid())
+   768→  type              String                             // 'flash_sale'|'commission'|'subscription'|'redemption'
+   769→  payerId           String?  @map("payer_id")
+   770→  receiverId        String?  @map("receiver_id")       // Pro/commerçant OU QR Domotik
+   771→  amount            Float
+   772→  currency          String   @default("EUR")
+   773→  stripePaymentId   String?  @map("stripe_payment_id")
+   774→  status            String   @default("pending")      // 'pending'|'completed'|'failed'|'refunded'
+   775→  referenceId       String?  @map("reference_id")      // ID promo, service_request, etc.
+   776→  createdAt         DateTime @default(now()) @map("created_at")
+   777→
+   778→  // ─── Relations ───
+   779→  payer    User? @relation("TransactionPayer", fields: [payerId], references: [id], onDelete: SetNull)
+   780→  receiver User? @relation("TransactionReceiver", fields: [receiverId], references: [id], onDelete: SetNull)
+   781→
+   782→  @@index([type])
+   783→  @@index([payerId])
+   784→  @@index([receiverId])
+   785→  @@index([status])
+   786→  @@index([createdAt])
+   787→  @@map("transactions")
+   788→}

@@ -16,8 +16,9 @@
 // TABLES V3  (11) : Merchant, Promo, PromoRedemption, ScrapingJob,
 //                   Professional, Service, ServiceRequest, Review,
 //                   EmergencyQrCode, Subscription, Transaction
+// TABLES V4  (3)  : QrBatch, PhysicalQrCode, ActivationLog
 //
-// TOTAL : 26 tables
+// TOTAL : 29 tables
 //
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -43,6 +44,7 @@ model User {
   email       String   @unique
   passwordHash String  @map("password_hash")
   fullName    String   @map("full_name")
+  role        String   @default("user") @map("role")       // V4: 'user' | 'superadmin'
   avatarUrl   String?  @map("avatar_url")
   avatarColor String?  @map("avatar_color")
   phone       String?                                // V3: téléphone pour artisans/commerçants
@@ -67,6 +69,11 @@ model User {
   promoRedemptions   PromoRedemption[]
   transactions       Transaction[]       @relation("TransactionPayer")
   receivedTransactions Transaction[]     @relation("TransactionReceiver")
+
+  // ─── Relations V4 (QR Physiques) ───
+  createdBatches      QrBatch[]
+  activatedQrCodes    PhysicalQrCode[]   @relation("Activator")
+  activationLogs      ActivationLog[]
 
   @@map("users")
 }
@@ -173,6 +180,7 @@ model QrCode {
   guestbookEntries GuestbookEntry[]
   serviceRequests  ServiceRequest[]
   emergencyConfig  EmergencyQrCode?
+  physicalActivations PhysicalQrCode[] @relation("LinkedQrCode")
 
   @@index([homeId])
   @@index([publicSlug])
@@ -778,4 +786,84 @@ model Transaction {
   @@index([status])
   @@index([createdAt])
   @@map("transactions")
+}
+
+// █████████████████████████████████████████████████████████████████████████████████
+// ██  V4 — QR CODES PHYSIQUES & ACTIVATION                           ██
+// █████████████████████████████████████████████████████████████████████████████████
+
+// ═══════════════════════════════════════════════════════════════════
+// TABLE 27 : QR_BATCHES — Lots générés par le Superadmin
+// ═══════════════════════════════════════════════════════════════════
+// Un lot contient N QR codes physiques avec un design unique.
+// designConfigJson stocke : {"color":"#2563EB","logoUrl":"/logos/wifi.png","dotStyle":"rounded"}
+
+model QrBatch {
+  id               String   @id @default(cuid())
+  quantity         Int                                // 10, 15, ou 20
+  designConfigJson String   @default("{}") @map("design_config_json")
+  createdBy        String   @map("created_by")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  // ─── Relations ───
+  creator    User             @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  qrCodes    PhysicalQrCode[]
+
+  @@index([createdBy])
+  @@index([createdAt])
+  @@map("qr_batches")
+}
+
+// ═════════════════════════════════════════════════════════════════════
+// TABLE 28 : PHYSICAL_QR_CODES — QR codes individuels physiques
+// ═══════════════════════════════════════════════════════════════════
+// Chaque QR physique a un code d'activation unique (ex: QR-A7K9M2P3).
+// Le QR physique pointe vers /activate/[activation_code].
+// Une fois activé, il est lié à un QrCode dynamique.
+
+model PhysicalQrCode {
+  id                  String    @id @default(cuid())
+  batchId             String    @map("batch_id")
+  activationCode      String    @unique @map("activation_code") // ex: "QR-A7K9M2P3"
+  status              String    @default("inactive")             // 'inactive'|'active'|'lost'|'cancelled'
+  activatedByUserId   String?   @map("activated_by_user_id")
+  activatedAt         DateTime? @map("activated_at")
+  dynamicQrCodeId     String?   @unique @map("dynamic_qr_code_id")
+  designConfigJson    String    @default("{}") @map("design_config_json") // hérité du batch
+
+  // ─── Relations ───
+  batch             QrBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  activatedBy        User?    @relation("Activator", fields: [activatedByUserId], references: [id], onDelete: SetNull)
+  dynamicQrCode      QrCode?  @relation("LinkedQrCode", fields: [dynamicQrCodeId], references: [id], onDelete: SetNull)
+  activationLogs     ActivationLog[]
+
+  @@index([batchId])
+  @@index([activationCode])
+  @@index([status])
+  @@index([activatedByUserId])
+  @@map("physical_qr_codes")
+}
+
+// ═════════════════════════════════════════════════════════════════════
+// TABLE 29 : ACTIVATION_LOGS — Historique d'audit
+// ═══════════════════════════════════════════════════════════════════
+// Journalise chaque action sur un QR code physique.
+
+model ActivationLog {
+  id                 String   @id @default(cuid())
+  physicalQrCodeId   String   @map("physical_qr_code_id")
+  userId             String?  @map("user_id")
+  action             String                                     // 'activated'|'deactivated'|'marked_lost'|'cancelled'
+  details            String?  @default("{}")  @map("details") // JSON: info additionnelle
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  // ─── Relations ───
+  physicalQrCode   PhysicalQrCode @relation(fields: [physicalQrCodeId], references: [id], onDelete: Cascade)
+  user             User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([physicalQrCodeId])
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("activation_logs")
 }
