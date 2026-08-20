@@ -17,6 +17,7 @@ import { usePanelStore } from '@/store/panel-store';
 
 const NAV_LINKS = [
   { label: 'Fonctionnalités', href: '#modules' },
+  { label: 'QR Physiques', href: '#physical-qr' },
   { label: 'Démo', href: '#demo' },
   { label: 'Tarifs', href: '#pricing' },
   { label: 'FAQ', href: '#faq' },

@@ -557,3 +557,18 @@ Stage Summary:
 - Export PDF avec mise en page planche d'autocollants via jspdf
 - Gestion des 4 statuts: inactive, active, lost, cancelled
 - Audit complet via activation_logs
+
+---
+Task ID: physical-qr-landing-fix
+Agent: Main Orchestrator
+Task: Rendre le module QR Codes Physiques visible sur la landing page
+
+Work Log:
+- Les fonctionnalités etaient cachees derriere des conditions
+- Cree PhysicalQrSection.tsx avec section complete visible
+- Integre dans page.tsx et Navbar.tsx
+- Lint et compilation OK
+
+Stage Summary:
+- Section QR Physiques visible pour tous les visiteurs
+- 3 fichiers modifies/crees

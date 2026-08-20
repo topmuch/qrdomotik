@@ -14,6 +14,7 @@ import { FinalCTA } from '@/components/landing/FinalCTA';
 import { Footer } from '@/components/landing/Footer';
 import { CursorGlow } from '@/components/landing/CursorGlow';
 import { AuthDialog } from '@/components/landing/AuthDialog';
+import { PhysicalQrSection } from '@/components/landing/PhysicalQrSection';
 import { AdminPanel } from '@/components/landing/AdminPanel';
 import { UserPanel } from '@/components/landing/UserPanel';
 import { ActivationOverlay } from '@/components/physical-qr/ActivationOverlay';
@@ -35,6 +36,7 @@ export default function LandingPage() {
         <HowItWorks />
         <PopularModules />
         <LiveDemo />
+        <PhysicalQrSection />
         <Advantages />
         <Testimonials />
         <Pricing />
