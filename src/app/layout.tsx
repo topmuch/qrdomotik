@@ -66,8 +66,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <meta name="apple-mobile-web-app-capable" content="yes" />
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}>
-        {/* Kill any old service worker that might cache the previous dashboard page */}
-        <script dangerouslySetInnerHTML={{ __html: 'if("serviceWorker" in navigator){navigator.serviceWorker.getRegistrations().then(function(r){r.forEach(function(reg){reg.unregister()})})}' }} />
+        {/* Kill any old service worker and clear caches */}
+        <script dangerouslySetInnerHTML={{ __html: '(function(){try{if("serviceWorker" in navigator){navigator.serviceWorker.getRegistrations().then(function(r){r.forEach(function(reg){reg.unregister()})})}if("caches" in window){caches.keys().then(function(names){names.forEach(function(n){caches.delete(n)})})}}catch(e){}})()' }} />
         <Providers>
           {children}
           <Toaster />
