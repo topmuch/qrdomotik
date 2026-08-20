@@ -25,25 +25,36 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL || 'https://qrdomotik.com'),
-  title: "QR Domotik — Maison Phygital via QR Codes Dynamiques",
-  description: "Transformez votre maison en espace phygital avec des QR codes dynamiques.",
-  keywords: ["QR Domotik", "QR code dynamique", "maison intelligente", "phygital", "SaaS"],
-  manifest: "/manifest.json",
+  title: 'QR Domotik — Maison intelligente avec des QR codes | Gratuit',
+  description: 'Transformez votre maison en maison intelligente avec des QR codes dynamiques. Wi-Fi invités, liste de courses, portier virtuel... Sans application. Gratuit pour toujours.',
+  keywords: ['QR Domotik', 'QR code', 'maison intelligente', 'domotique', 'Wi-Fi invités', 'liste de courses', 'portier virtuel', 'gratuit', 'sans application'],
+  manifest: '/manifest.json',
   icons: {
-    icon: "/qr-domotik-logo.png",
-    apple: "/pwa-icon-192x192.png",
+    icon: '/qr-domotik-logo.png',
+    apple: '/pwa-icon-192x192.png',
   },
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
-    title: "QR Domotik",
+    statusBarStyle: 'default',
+    title: 'QR Domotik',
   },
   openGraph: {
-    type: "website",
-    title: "QR Domotik — Maison Phygital",
-    description: "Transformez votre maison en espace phygital avec des QR codes dynamiques.",
-    siteName: "QR Domotik",
-    images: [{ url: "/qr-domotik-hero.png", width: 1344, height: 768 }],
+    type: 'website',
+    title: 'QR Domotik — Maison intelligente avec des QR codes',
+    description: 'Transformez votre maison en maison intelligente avec des QR codes dynamiques. Sans application. Gratuit pour toujours.',
+    siteName: 'QR Domotik',
+    locale: 'fr_FR',
+    images: [{ url: '/qr-domotik-hero.png', width: 1344, height: 768, alt: 'QR Domotik - Maison intelligente' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'QR Domotik — Maison intelligente avec des QR codes',
+    description: 'Sans application. Gratuit pour toujours. 15+ modules pour votre maison.',
+    images: ['/qr-domotik-hero.png'],
+  },
+  robots: {
+    index: true,
+    follow: true,
   },
 };
 

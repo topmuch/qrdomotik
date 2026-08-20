@@ -374,3 +374,67 @@ Stage Summary:
 - 7 composants React intégrés dans le dashboard
 - 15 types de QR codes supportés (13 existants + 2 V3)
 - Page.tsx passée de 850 à ~960 lignes
+
+---
+Task ID: LP-AGENT-A
+Agent: Landing Page Components Agent
+Task: Création des 8 composants landing page pour qrdomotik.com
+
+Work Log:
+- Lu worklog.md pour comprendre le contexte projet (V1→V2→V3, 26 tables, Next.js 16, shadcn/ui)
+- Vérifié les dépendances disponibles : framer-motion, react-qr-code, lucide-react, shadcn/ui (Sheet, Badge, Dialog, Button, Card)
+- Créé le répertoire src/components/landing/
+- Créé ScrollReveal.tsx : wrapper Intersection Observer + Framer Motion pour animations fade-in-up avec 4 directions (up/down/left/right), props delay/duration/once
+- Créé FloatingParticles.tsx : particules flottantes (cercles/carrés) avec 3 keyframes CSS, utilise useSyncExternalStore pour isClient + reducedMotion (évite lint react-hooks/set-state-in-effect), palette bleue #2563EB
+- Créé CursorGlow.tsx : halo radial bleu suivant le curseur souris, détection prefers-reduced-motion, lazy initializer pour reducedMotion
+- Créé Navbar.tsx : barre de navigation sticky glassmorphism (backdrop-blur-md, bg-white/80), logo QrCode + texte QR Domotik, 4 liens (Fonctionnalités, Démo, Tarifs, FAQ), CTA arrondi bleu, menu mobile via Sheet, smooth scroll sur ancres, ombre au scroll
+- Créé QRCodeDemo.tsx : carte glassmorphism avec QRCodeSVG (react-qr-code), overlay icône Home, scan line animée, 4 démos cyclables (Wi-Fi, Liste courses, Portier virtuel, Menu du jour), AnimatePresence pour transitions, count-up 0→1247 sur 2s, toast notification « Marie vient de scanner... », pulsing card animation
+- Créé HeroSection.tsx : section min-h-screen avec gradient blobs, FloatingParticles, layout 60/40 desktop, badge version 2, H1 avec gradient text bleu→émeraude, CTA motion.button avec whileHover/whileTap, lien démo, social proof 4.9/5, badges iOS/Android, staggered animations via variants container
+- Créé HowItWorks.tsx : section 3 étapes, H2 + sous-titre centrés, grid 3 colonnes avec lignes connectrices dashed (desktop), cartes hover shadow/translate-y, numéros gradient bleu→émeraude, icônes Palette/Printer/Smartphone, ScrollReveal staggered delays
+- Créé PopularModules.tsx : section grille 6 modules (Wi-Fi, Liste courses, Portier virtuel, Livre d'or, Menu du jour, Suivi médicaments), badges Populaire/Nouveau, Dialog avec aperçu mockup au clic, icônes colorées, ScrollReveal staggered
+- Corrigé 2 erreurs ESLint react-hooks/set-state-in-effect : refactored FloatingParticles avec useSyncExternalStore pour isClient et reducedMotion, refactored CursorGlow avec dérivation hors useEffect
+- ESLint : 0 erreurs
+- Dev server : compile correctement
+
+Stage Summary:
+- 8 composants créés dans src/components/landing/
+- ScrollReveal : wrapper animation réutilisable (4 directions, delay, duration, once)
+- FloatingParticles : particules décoratives avec accessibilité (reduced-motion, aria-hidden)
+- CursorGlow : effet de suivi curseur avec respect prefers-reduced-motion
+- Navbar : navigation responsive glassmorphism avec Sheet mobile + smooth scroll
+- HeroSection : hero complet avec gradient blobs, staggered animations, QR code demo
+- QRCodeDemo : démo interactive avec 4 scénarios, count-up, toast, scan line
+- HowItWorks : 3 étapes avec lignes connectrices et cartes animées
+- PopularModules : grille 6 modules avec Dialog de prévisualisation
+- Tout le texte en français, design responsive mobile-first, palette blue-600/emerald-500/amber-500
+- Aucun fichier existant modifié, 0 erreur ESLint
+---
+Task ID: LP-AGENT-B
+Agent: Landing Page Bottom Sections Agent
+Task: Créer 7 composants landing page (LiveDemo, Advantages, Testimonials, Pricing, FAQ, FinalCTA, Footer)
+
+Work Log:
+- Lu worklog.md pour comprendre le contexte du projet et les patterns existants
+- Vérifié les composants existants (ScrollReveal, FloatingParticles) et UI shadcn disponibles
+- Vérifié les packages installés : react-qr-code@2.2.0, embla-carousel-react@8.6.0
+- Créé LiveDemo.tsx : section démo interactive avec 5 onglets (Wi-Fi, Liste Courses, Portier, Livre d'Or, Menu), QR code dynamique via QRCodeSVG, mockup téléphone avec notch/status bar, dark mode toggle via Switch, bouton régénérer, bouton partager avec toast, gradient animé CSS avec prefers-reduced-motion
+- Créé Advantages.tsx : bento grid 8 avantages (Gratuit 0€/mois, Dynamique, Privé, Rapide, Design, Mobile, Stats, Famille) avec icônes colorées, col-span variés, ScrollReveal stagger
+- Créé Testimonials.tsx : carousel embla-carousel-react avec 6 témoignages, auto-scroll 5s pause-on-hover, navigation par dots, avatars gradient, étoiles amber
+- Créé Pricing.tsx : 2 cartes (Gratuit 0€ et Pro 9,90€), badge 'Recommandé', listes features avec Check icons, Separator, Button outline/bg
+- Créé FAQ.tsx : 5 questions avec Accordion shadcn/ui, styling custom (bg-white rounded-xl border, hover:text-blue-600 triggers)
+- Créé FinalCTA.tsx : CTA avec gradient animé CSS, FloatingParticles, motion.button scale, lien vers #demo, trust badges
+- Créé Footer.tsx : 4 colonnes (Logo+socials, Produit, Légal, Contact), icones Twitter/Linkedin/Instagram, bottom bar copyright
+- Corrigé erreur lint react-hooks/set-state-in-effect dans Testimonials.tsx (éviter appel synchrone setState dans useEffect)
+- ESLint passe sans erreur
+
+Stage Summary:
+- 7 fichiers créés dans src/components/landing/
+- LiveDemo : tabs QR + phone mockup + dark mode + QRCodeSVG
+- Advantages : bento grid 8 cards responsive
+- Testimonials : embla carousel 6 slides auto-scroll
+- Pricing : 2 plans (Gratuit/Pro) avec badge
+- FAQ : 5 questions accordion
+- FinalCTA : gradient CTA + particles
+- Footer : 4 colonnes responsive
+- 0 erreur ESLint, tous textes en français, palette blue-600/emerald-500/amber-500
+- Aucun fichier existant modifié
