@@ -3,7 +3,6 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { Providers } from "@/components/providers";
-import { PwaInit } from "@/components/pwa-init";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -67,8 +66,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <meta name="apple-mobile-web-app-capable" content="yes" />
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}>
+        {/* Kill any old service worker that might cache the previous dashboard page */}
+        <script dangerouslySetInnerHTML={{ __html: 'if("serviceWorker" in navigator){navigator.serviceWorker.getRegistrations().then(function(r){r.forEach(function(reg){reg.unregister()})})}' }} />
         <Providers>
-          <PwaInit />
           {children}
           <Toaster />
         </Providers>
