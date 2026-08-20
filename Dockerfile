@@ -1,64 +1,33 @@
-# ═══════════════════════════════════════════════════════════════════
-# QR DOMOTIK — Dockerfile pour Coolify
-# Next.js 16 + Bun + Prisma (SQLite) + Standalone
-# ═══════════════════════════════════════════════════════════════════
+FROM node:20-alpine
 
-# ─── Étape 1 : Dépendances ───────────────────────────────────────────
-FROM oven/bun:1 AS deps
+# Install required packages
+RUN apk add --no-cache git libc6-compat sqlite
+RUN npm install -g bun
+
 WORKDIR /app
 
-COPY package.json bun.lock* ./
-RUN bun install --frozen-lockfile --production=false
+# Clone the repository
+RUN git clone https://github.com/topmuch/qrtagsori.git .
 
-# ─── Étape 2 : Build ─────────────────────────────────────────────────
-FROM oven/bun:1 AS builder
-WORKDIR /app
+# Install dependencies
+RUN bun install
 
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+# Generate Prisma Client
+RUN npx prisma generate
 
-# Générer le client Prisma
-RUN bunx prisma generate
-
-# Build Next.js standalone
+# Build the application
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV NODE_ENV=production
+ENV DATABASE_URL=file:/app/data/qrtags.db
 RUN bun run build
 
-# ─── Étape 3 : Production ───────────────────────────────────────────
-FROM oven/bun:1-alpine AS runner
-WORKDIR /app
-
-ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
-ENV PORT=3000
-ENV HOSTNAME="0.0.0.0"
-
-# Sécurité : utilisateur non-root
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nextjs
-
-# Copier le build standalone
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-
-# Copier les assets statiques et public
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-COPY --from=builder --chown=nextjs:nodejs /app/public ./public
-
-# Copier Prisma schema + migrations pour le seed initial
-COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
-
-# Créer le dossier pour la DB SQLite
-RUN mkdir -p /app/data && chown nextjs:nodejs /app/data
-
-USER nextjs
+# Create data directory
+RUN mkdir -p /app/data
 
 EXPOSE 3000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api || exit 1
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+ENV DATABASE_URL=file:/app/data/qrtags.db
 
-CMD ["sh", "-c", "bunx prisma db push --skip-generate 2>/dev/null || true && bun server.js"]
+# Start command - create admin and start server
+CMD sh -c "mkdir -p /app/data && export DATABASE_URL=file:/app/data/qrtags.db && npx prisma db push --skip-generate 2>/dev/null || true && node scripts/create-admin.cjs 2>/dev/null || true && exec node .next/standalone/server.js"
