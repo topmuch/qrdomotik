@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { QRCodeSVG } from 'react-qr-code';
+import QRCode from 'react-qr-code';
 import { Home, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -94,7 +94,7 @@ export function QRCodeDemo() {
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.3 }}
               >
-                <QRCodeSVG
+                <QRCode
                   value={demo.url}
                   size={240}
                   className="w-[240px] h-[240px] md:w-[280px] md:h-[280px]"

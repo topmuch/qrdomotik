@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import QRCodeSVG from 'react-qr-code';
+import QRCode from 'react-qr-code';
 import { motion } from 'framer-motion';
 import { RefreshCw, Eye, EyeOff, Wifi, ShoppingCart, DoorOpen, BookOpen, UtensilsCrossed, Copy, Check } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -358,7 +358,7 @@ export function LiveDemo() {
                   {/* Left: QR Code */}
                   <div className="flex flex-col items-center">
                     <div className="bg-white rounded-xl p-4 shadow-lg">
-                      <QRCodeSVG
+                      <QRCode
                         value={qrUrl}
                         size={200}
                         level="M"
