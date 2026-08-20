@@ -1,0 +1,909 @@
+     1→'use client';
+     2→
+     3→import { useState, useRef, useCallback, useEffect } from 'react';
+     4→import { useSession } from 'next-auth/react';
+     5→import { motion, AnimatePresence } from 'framer-motion';
+     6→import { toast } from 'sonner';
+     7→import QRCodeStyling from 'qr-code-styling';
+     8→import { jsPDF } from 'jspdf';
+     9→import {
+    10→  Loader2, Download, Palette, QrCode, CheckCircle,
+    11→  Wifi, Home, ListChecks, Star, Eye, RotateCcw,
+    12→  Sparkles, Type, ImageIcon, Shield, CornersIcon,
+    13→} from 'lucide-react';
+    14→import { Button } from '@/components/ui/button';
+    15→import { Label } from '@/components/ui/label';
+    16→import { Input } from '@/components/ui/input';
+    17→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+    18→import { Separator } from '@/components/ui/separator';
+    19→import { Badge } from '@/components/ui/badge';
+    20→import {
+    21→  Select,
+    22→  SelectContent,
+    23→  SelectItem,
+    24→  SelectTrigger,
+    25→  SelectValue,
+    26→} from '@/components/ui/select';
+    27→import {
+    28→  BATCH_QUANTITIES,
+    29→  DOT_STYLE_OPTIONS,
+    30→  type DotStyle,
+    31→  type DesignConfig,
+    32→} from '@/types';
+    33→
+    34→// ─── Constants ────────────────────────────────────────────────────────────
+    35→
+    36→const COLOR_PRESETS = [
+    37→  '#059669', '#2563EB', '#7C3AED', '#DC2626',
+    38→  '#EA580C', '#0891B2', '#4F46E5', '#BE185D',
+    39→  '#D97706', '#0D9488', '#4338CA', '#B91C1C',
+    40→];
+    41→
+    42→const BG_COLOR_PRESETS = [
+    43→  '#FFFFFF', '#F9FAFB', '#F0FDF4', '#EFF6FF',
+    44→  '#FDF4FF', '#FFF7ED', '#FEF2F2', '#F0F9FF',
+    45→  '#F5F3FF', '#ECFDF5', '#FFFBEB', '#FDF2F8',
+    46→];
+    47→
+    48→type CornerStyle = 'square' | 'dot' | 'extra-rounded';
+    49→
+    50→const CORNER_STYLE_OPTIONS: Record<CornerStyle, string> = {
+    51→  square: 'Carré',
+    52→  dot: 'Rond',
+    53→  'extra-rounded': 'Arrondi',
+    54→};
+    55→
+    56→type ErrorCorrectionLevel = 'L' | 'M' | 'Q' | 'H';
+    57→
+    58→const ERROR_CORRECTION_OPTIONS: Record<ErrorCorrectionLevel, { label: string; description: string }> = {
+    59→  L: { label: 'L — 7%', description: 'Basse récupération' },
+    60→  M: { label: 'M — 15%', description: 'Moyenne récupération' },
+    61→  Q: { label: 'Q — 25%', description: 'Haute récupération' },
+    62→  H: { label: 'H — 30%', description: 'Maximale récupération' },
+    63→};
+    64→
+    65→type LogoPresetKey = 'wifi' | 'maison' | 'liste' | 'aucun';
+    66→
+    67→const LOGO_PRESETS: Record<LogoPresetKey, { label: string; icon: string }> = {
+    68→  wifi: { label: 'Wi-Fi', icon: 'Wifi' },
+    69→  maison: { label: 'Maison', icon: 'Home' },
+    70→  liste: { label: 'Liste', icon: 'ListChecks' },
+    71→  aucun: { label: 'Aucun', icon: 'X' },
+    72→};
+    73→
+    74→interface TemplatePreset {
+    75→  id: string;
+    76→  name: string;
+    77→  description: string;
+    78→  color: string;
+    79→  backgroundColor: string;
+    80→  dotStyle: DotStyle;
+    81→  cornerStyle: CornerStyle;
+    82→  errorCorrection: ErrorCorrectionLevel;
+    83→  logo: LogoPresetKey;
+    84→}
+    85→
+    86→const TEMPLATE_PRESETS: TemplatePreset[] = [
+    87→  {
+    88→    id: 'classique',
+    89→    name: 'Classique',
+    90→    description: 'QR noir sur fond blanc, style carré',
+    91→    color: '#000000',
+    92→    backgroundColor: '#FFFFFF',
+    93→    dotStyle: 'square',
+    94→    cornerStyle: 'square',
+    95→    errorCorrection: 'M',
+    96→    logo: 'aucun',
+    97→  },
+    98→  {
+    99→    id: 'moderne',
+   100→    name: 'Moderne',
+   101→    description: 'Arrondi avec coins doux, couleur émeraude',
+   102→    color: '#059669',
+   103→    backgroundColor: '#F0FDF4',
+   104→    dotStyle: 'rounded',
+   105→    cornerStyle: 'extra-rounded',
+   106→    errorCorrection: 'M',
+   107→    logo: 'aucun',
+   108→  },
+   109→  {
+   110→    id: 'premium',
+   111→    name: 'Premium',
+   112→    description: 'Style pointillé avec fond bleu nuit',
+   113→    color: '#2563EB',
+   114→    backgroundColor: '#EFF6FF',
+   115→    dotStyle: 'dots',
+   116→    cornerStyle: 'dot',
+   117→    errorCorrection: 'Q',
+   118→    logo: 'maison',
+   119→  },
+   120→  {
+   121→    id: 'elegance',
+   122→    name: 'Élégance',
+   123→    description: 'Classique arrondi, violet, haut fiabilité',
+   124→    color: '#7C3AED',
+   125→    backgroundColor: '#FDF4FF',
+   126→    dotStyle: 'classy-rounded',
+   127→    cornerStyle: 'extra-rounded',
+   128→    errorCorrection: 'H',
+   129→    logo: 'maison',
+   130→  },
+   131→  {
+   132→    id: 'dynamique',
+   133→    name: 'Dynamique',
+   134→    description: 'Points ronds vifs, orange, logo Wi-Fi',
+   135→    color: '#EA580C',
+   136→    backgroundColor: '#FFF7ED',
+   137→    dotStyle: 'rounded',
+   138→    cornerStyle: 'dot',
+   139→    errorCorrection: 'Q',
+   140→    logo: 'wifi',
+   141→  },
+   142→];
+   143→
+   144→// Map dot style to qr-code-styling type
+   145→const DOT_STYLE_MAP: Record<DotStyle, 'square' | 'rounded' | 'dots' | 'classy' | 'classy-rounded' | 'extra-rounded'> = {
+   146→  square: 'square',
+   147→  rounded: 'rounded',
+   148→  dots: 'dots',
+   149→  classy: 'classy',
+   150→  'classy-rounded': 'classy-rounded',
+   151→  'extra-rounded': 'extra-rounded',
+   152→};
+   153→
+   154→// ─── Types ────────────────────────────────────────────────────────────────
+   155→
+   156→interface BatchResult {
+   157→  id: string;
+   158→  name?: string | null;
+   159→  quantity: number;
+   160→  designConfigJson: string;
+   161→  qrCodes: { id: string; activationCode: string; status: string }[];
+   162→  createdAt: string;
+   163→}
+   164→
+   165→// ─── Component ────────────────────────────────────────────────────────────
+   166→
+   167→export function AdminBatchGenerator() {
+   168→  const { data: session } = useSession();
+   169→
+   170→  // Form state
+   171→  const [quantity, setQuantity] = useState<number>(10);
+   172→  const [color, setColor] = useState('#059669');
+   173→  const [backgroundColor, setBackgroundColor] = useState('#FFFFFF');
+   174→  const [dotStyle, setDotStyle] = useState<DotStyle>('rounded');
+   175→  const [cornerStyle, setCornerStyle] = useState<CornerStyle>('extra-rounded');
+   176→  const [errorCorrection, setErrorCorrection] = useState<ErrorCorrectionLevel>('M');
+   177→  const [logoPreset, setLogoPreset] = useState<LogoPresetKey>('aucun');
+   178→  const [customLogoUrl, setCustomLogoUrl] = useState('');
+   179→  const [batchName, setBatchName] = useState('');
+   180→
+   181→  // UI state
+   182→  const [loading, setLoading] = useState(false);
+   183→  const [generatedBatch, setGeneratedBatch] = useState<BatchResult | null>(null);
+   184→  const [activeTemplate, setActiveTemplate] = useState<string>('');
+   185→
+   186→  // QR Preview
+   187→  const [previewData, setPreviewData] = useState('QR-DEMO-PREVIEW');
+   188→  const previewRef = useRef<HTMLDivElement>(null);
+   189→  const qrInstanceRef = useRef<QRCodeStyling | null>(null);
+   190→  const canvasRefs = useRef<Map<string, HTMLCanvasElement>>(new Map());
+   191→
+   192→  // Resolve logo URL
+   193→  const getLogoUrl = useCallback(() => {
+   194→    if (logoPreset === 'aucun') return customLogoUrl || undefined;
+   195→    // Use a placeholder SVG encoded as data URI for presets
+   196→    const icons: Record<string, string> = {
+   197→      wifi: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>')}`,
+   198→      maison: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>')}`,
+   199→      liste: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="6" height="6" rx="1"/><path d="m3 17 2 2 4-4"/><line x1="13" y1="6" x2="21" y2="6"/><line x1="13" y1="12" x2="21" y2="12"/><line x1="13" y1="18" x2="21" y2="18"/></svg>')}`,
+   200→    };
+   201→    return icons[logoPreset] || undefined;
+   202→  }, [logoPreset, customLogoUrl, color]);
+   203→
+   204→  // QR Code Styling options
+   205→  const getQrOptions = useCallback(() => {
+   206→    const logoUrl = getLogoUrl();
+   207→    return {
+   208→      width: 200,
+   209→      height: 200,
+   210→      data: `https://qrdomotik.com/?activate=${previewData}`,
+   211→      dotsOptions: {
+   212→        color,
+   213→        type: DOT_STYLE_MAP[dotStyle],
+   214→      },
+   215→      cornersSquareOptions: {
+   216→        color,
+   217→        type: cornerStyle as 'square' | 'extra-rounded' | 'dot',
+   218→      },
+   219→      cornersDotOptions: {
+   220→        color,
+   221→        type: cornerStyle === 'square' ? 'square' : 'dot',
+   222→      },
+   223→      backgroundOptions: {
+   224→        color: backgroundColor,
+   225→      },
+   226→      qrOptions: {
+   227→        errorCorrectionLevel: errorCorrection,
+   228→      },
+   229→      ...(logoUrl
+   230→        ? {
+   231→            image: logoUrl,
+   232→            imageOptions: { crossOrigin: 'anonymous', margin: 5, imageSize: 0.35 },
+   233→          }
+   234→        : {}),
+   235→    };
+   236→  }, [color, backgroundColor, dotStyle, cornerStyle, errorCorrection, getLogoUrl, previewData]);
+   237→
+   238→  // Live preview
+   239→  useEffect(() => {
+   240→    if (!previewRef.current) return;
+   241→    const container = previewRef.current;
+   242→    container.innerHTML = '';
+   243→
+   244→    const qr = new QRCodeStyling(getQrOptions());
+   245→    qr.append(container);
+   246→    qrInstanceRef.current = qr;
+   247→  }, [getQrOptions]);
+   248→
+   249→  // Apply template preset
+   250→  const applyTemplate = useCallback((template: TemplatePreset) => {
+   251→    setColor(template.color);
+   252→    setBackgroundColor(template.backgroundColor);
+   253→    setDotStyle(template.dotStyle);
+   254→    setCornerStyle(template.cornerStyle);
+   255→    setErrorCorrection(template.errorCorrection);
+   256→    setLogoPreset(template.logo);
+   257→    setActiveTemplate(template.id);
+   258→    toast.success(`Modèle « ${template.name} » appliqué`);
+   259→  }, []);
+   260→
+   261→  // Reset all options
+   262→  const handleReset = useCallback(() => {
+   263→    setColor('#059669');
+   264→    setBackgroundColor('#FFFFFF');
+   265→    setDotStyle('rounded');
+   266→    setCornerStyle('extra-rounded');
+   267→    setErrorCorrection('M');
+   268→    setLogoPreset('aucun');
+   269→    setCustomLogoUrl('');
+   270→    setBatchName('');
+   271→    setQuantity(10);
+   272→    setActiveTemplate('');
+   273→    setGeneratedBatch(null);
+   274→    toast.info('Réinitialisé avec succès');
+   275→  }, []);
+   276→
+   277→  // Build design config for API
+   278→  const buildDesignConfig = useCallback((): DesignConfig => {
+   279→    return {
+   280→      color,
+   281→      backgroundColor,
+   282→      dotStyle,
+   283→      logoUrl: getLogoUrl(),
+   284→    };
+   285→  }, [color, backgroundColor, dotStyle, getLogoUrl]);
+   286→
+   287→  // Generate batch
+   288→  const handleGenerate = useCallback(async () => {
+   289→    setLoading(true);
+   290→    try {
+   291→      const designConfig = buildDesignConfig();
+   292→      const res = await fetch('/api/admin/qr-batches', {
+   293→        method: 'POST',
+   294→        headers: { 'Content-Type': 'application/json' },
+   295→        body: JSON.stringify({ quantity, designConfig, name: batchName || undefined }),
+   296→      });
+   297→      const data = await res.json();
+   298→      if (!res.ok) {
+   299→        toast.error(data.error || 'Erreur lors de la génération');
+   300→        return;
+   301→      }
+   302→      setGeneratedBatch(data.data);
+   303→      toast.success(`Lot de ${quantity} QR codes généré avec succès !`);
+   304→    } catch {
+   305→      toast.error('Erreur serveur');
+   306→    } finally {
+   307→      setLoading(false);
+   308→    }
+   309→  }, [quantity, buildDesignConfig, batchName]);
+   310→
+   311→  // Render QR to a canvas element
+   312→  const renderQrToCanvas = useCallback(
+   313→    async (text: string, canvas: HTMLCanvasElement) => {
+   314→      const logoUrl = getLogoUrl();
+   315→      const qr = new QRCodeStyling({
+   316→        width: 200,
+   317→        height: 200,
+   318→        data: `https://qrdomotik.com/?activate=${text}`,
+   319→        dotsOptions: { color, type: DOT_STYLE_MAP[dotStyle] },
+   320→        cornersSquareOptions: { color, type: cornerStyle as 'square' | 'extra-rounded' | 'dot' },
+   321→        cornersDotOptions: { color, type: cornerStyle === 'square' ? 'square' : 'dot' },
+   322→        backgroundOptions: { color: backgroundColor },
+   323→        qrOptions: { errorCorrectionLevel: errorCorrection },
+   324→        ...(logoUrl
+   325→          ? { image: logoUrl, imageOptions: { crossOrigin: 'anonymous', margin: 5, imageSize: 0.35 } }
+   326→          : {}),
+   327→      });
+   328→      qr.append(canvas);
+   329→    },
+   330→    [color, backgroundColor, dotStyle, cornerStyle, errorCorrection, getLogoUrl],
+   331→  );
+   332→
+   333→  // Download PDF
+   334→  const downloadPDF = useCallback(async () => {
+   335→    if (!generatedBatch) return;
+   336→    toast.info('Génération du PDF en cours...');
+   337→
+   338→    try {
+   339→      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+   340→      const pageW = pdf.internal.pageSize.getWidth();
+   341→      const pageH = pdf.internal.pageSize.getHeight();
+   342→      const cols = quantity <= 10 ? 2 : quantity <= 15 ? 3 : 4;
+   343→      const cellW = (pageW - 20) / cols;
+   344→      const cellH = 50;
+   345→      const qrSize = 28;
+   346→
+   347→      // Title
+   348→      pdf.setFontSize(14);
+   349→      pdf.setTextColor(30, 30, 30);
+   350→      pdf.text('QR Domotik — Lot d\'impression', pageW / 2, 8, { align: 'center' });
+   351→
+   352→      if (batchName) {
+   353→        pdf.setFontSize(10);
+   354→        pdf.setTextColor(120, 120, 120);
+   355→        pdf.text(batchName, pageW / 2, 14, { align: 'center' });
+   356→      }
+   357→
+   358→      const codes = generatedBatch.qrCodes;
+   359→      let idx = 0;
+   360→      let y = batchName ? 20 : 16;
+   361→
+   362→      while (idx < codes.length) {
+   363→        if (y + cellH > pageH - 10) {
+   364→          pdf.addPage();
+   365→          y = 15;
+   366→        }
+   367→        for (let col = 0; col < cols && idx < codes.length; col++, idx++) {
+   368→          const x = 10 + col * cellW;
+   369→          const code = codes[idx];
+   370→
+   371→          // Render QR to temp canvas
+   372→          const canvas = document.createElement('canvas');
+   373→          await renderQrToCanvas(
+   374→            `https://qrdomotik.com/?activate=${code.activationCode}`,
+   375→            canvas,
+   376→          );
+   377→          const imgData = canvas.toDataURL('image/png');
+   378→
+   379→          // QR code image
+   380→          const qrX = x + (cellW - qrSize) / 2;
+   381→          pdf.addImage(imgData, 'PNG', qrX, y + 2, qrSize, qrSize);
+   382→
+   383→          // Activation code text below
+   384→          pdf.setFontSize(7);
+   385→          pdf.setTextColor(100, 100, 100);
+   386→          pdf.text(code.activationCode, x + cellW / 2, y + qrSize + 7, { align: 'center' });
+   387→
+   388→          // Status indicator
+   389→          pdf.setFontSize(6);
+   390→          pdf.setTextColor(180, 180, 180);
+   391→          pdf.text('Non activé', x + cellW / 2, y + qrSize + 12, { align: 'center' });
+   392→        }
+   393→        y += cellH;
+   394→      }
+   395→
+   396→      pdf.save(`qr-domotik-lot-${generatedBatch.id.slice(0, 8)}.pdf`);
+   397→      toast.success('PDF téléchargé avec succès !');
+   398→    } catch {
+   399→      toast.error('Erreur lors de la génération du PDF');
+   400→    }
+   401→  }, [generatedBatch, quantity, batchName, renderQrToCanvas]);
+   402→
+   403→  if (!session) return null;
+   404→
+   405→  return (
+   406→    <div className="space-y-6">
+   407→      {/* Header */}
+   408→      <div className="flex items-center justify-between flex-wrap gap-3">
+   409→        <div>
+   410→          <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+   411→            <QrCode className="w-5 h-5 text-purple-600" />
+   412→            Générateur de Lots
+   413→          </h2>
+   414→          <p className="text-sm text-gray-500 mt-1">
+   415→            Créez des lots de QR codes physiques avec personnalisation avancée
+   416→          </p>
+   417→        </div>
+   418→        <Button variant="outline" size="sm" onClick={handleReset} className="gap-1.5 text-gray-500">
+   419→          <RotateCcw className="w-3.5 h-3.5" /> Réinitialiser
+   420→        </Button>
+   421→      </div>
+   422→
+   423→      {/* Template Presets */}
+   424→      <motion.div
+   425→        initial={{ opacity: 0, y: 10 }}
+   426→        animate={{ opacity: 1, y: 0 }}
+   427→      >
+   428→        <Card className="border-0 shadow-sm">
+   429→          <CardHeader className="pb-3">
+   430→            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+   431→              <Sparkles className="w-4 h-4 text-amber-500" />
+   432→              Modèles prédéfinis
+   433→            </CardTitle>
+   434→          </CardHeader>
+   435→          <CardContent>
+   436→            <div className="flex gap-3 overflow-x-auto pb-2">
+   437→              {TEMPLATE_PRESETS.map((template) => (
+   438→                <motion.button
+   439→                  key={template.id}
+   440→                  whileHover={{ scale: 1.02 }}
+   441→                  whileTap={{ scale: 0.98 }}
+   442→                  onClick={() => applyTemplate(template)}
+   443→                  className={`flex-shrink-0 w-36 p-3 rounded-xl border-2 text-left transition-all ${
+   444→                    activeTemplate === template.id
+   445→                      ? 'border-purple-500 bg-purple-50 shadow-sm'
+   446→                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+   447→                  }`}
+   448→                >
+   449→                  <div
+   450→                    className="w-full h-8 rounded-lg mb-2"
+   451→                    style={{
+   452→                      backgroundColor: template.backgroundColor,
+   453→                      border: `2px solid ${template.color}22`,
+   454→                    }}
+   455→                  >
+   456→                    <div className="flex items-center justify-center h-full gap-0.5">
+   457→                      {[...Array(3)].map((_, i) => (
+   458→                        <div
+   459→                          key={i}
+   460→                          className="w-1.5 h-1.5 rounded-sm"
+   461→                          style={{ backgroundColor: template.color, opacity: 0.6 + i * 0.15 }}
+   462→                        />
+   463→                      ))}
+   464→                    </div>
+   465→                  </div>
+   466→                  <p className="text-xs font-semibold text-gray-900">{template.name}</p>
+   467→                  <p className="text-[10px] text-gray-400 mt-0.5 line-clamp-1">
+   468→                    {template.description}
+   469→                  </p>
+   470→                </motion.button>
+   471→              ))}
+   472→            </div>
+   473→          </CardContent>
+   474→        </Card>
+   475→      </motion.div>
+   476→
+   477→      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+   478→        {/* Left: Configuration */}
+   479→        <div className="lg:col-span-2 space-y-5">
+   480→          {/* Batch Name & Quantity */}
+   481→          <motion.div
+   482→            className="grid grid-cols-1 sm:grid-cols-2 gap-4"
+   483→            initial={{ opacity: 0, y: 10 }}
+   484→            animate={{ opacity: 1, y: 0 }}
+   485→            transition={{ delay: 0.05 }}
+   486→          >
+   487→            <div className="space-y-2">
+   488→              <Label className="text-sm font-medium flex items-center gap-1.5">
+   489→                <Type className="w-3.5 h-3.5 text-gray-400" />
+   490→                Nom du lot <span className="text-gray-400 font-normal">(optionnel)</span>
+   491→              </Label>
+   492→              <Input
+   493→                placeholder="ex: Lot Mai 2025 — Bordeaux"
+   494→                value={batchName}
+   495→                onChange={(e) => setBatchName(e.target.value)}
+   496→                className="h-9"
+   497→              />
+   498→            </div>
+   499→
+   500→            <div className="space-y-2">
+   501→              <Label className="text-sm font-medium">Quantité</Label>
+   502→              <div className="flex gap-2">
+   503→                {BATCH_QUANTITIES.map((q) => (
+   504→                  <button
+   505→                    key={q}
+   506→                    onClick={() => setQuantity(q)}
+   507→                    className={`flex-1 py-2 rounded-lg text-sm font-medium border-2 transition-all ${
+   508→                      quantity === q
+   509→                        ? 'border-purple-500 bg-purple-50 text-purple-700'
+   510→                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
+   511→                    }`}
+   512→                  >
+   513→                    {q}
+   514→                  </button>
+   515→                ))}
+   516→              </div>
+   517→            </div>
+   518→          </motion.div>
+   519→
+   520→          {/* Colors */}
+   521→          <motion.div
+   522→            className="grid grid-cols-1 sm:grid-cols-2 gap-4"
+   523→            initial={{ opacity: 0, y: 10 }}
+   524→            animate={{ opacity: 1, y: 0 }}
+   525→            transition={{ delay: 0.1 }}
+   526→          >
+   527→            <div className="space-y-2">
+   528→              <Label className="text-sm font-medium flex items-center gap-1.5">
+   529→                <Palette className="w-3.5 h-3.5 text-gray-400" />
+   530→                Couleur principale
+   531→              </Label>
+   532→              <div className="flex items-center gap-2 flex-wrap">
+   533→                {COLOR_PRESETS.map((c) => (
+   534→                  <button
+   535→                    key={c}
+   536→                    onClick={() => { setColor(c); setActiveTemplate(''); }}
+   537→                    className={`w-7 h-7 rounded-full border-2 transition-all hover:scale-110 ${
+   538→                      color.toLowerCase() === c.toLowerCase()
+   539→                        ? 'border-gray-900 scale-110 ring-2 ring-gray-300'
+   540→                        : 'border-transparent'
+   541→                    }`}
+   542→                    style={{ backgroundColor: c }}
+   543→                  />
+   544→                ))}
+   545→                <div className="relative">
+   546→                  <Input
+   547→                    value={color}
+   548→                    onChange={(e) => { setColor(e.target.value); setActiveTemplate(''); }}
+   549→                    className="w-20 h-7 text-xs px-2 font-mono"
+   550→                    maxLength={7}
+   551→                  />
+   552→                </div>
+   553→              </div>
+   554→            </div>
+   555→
+   556→            <div className="space-y-2">
+   557→              <Label className="text-sm font-medium flex items-center gap-1.5">
+   558→                <div
+   559→                  className="w-3.5 h-3.5 rounded border border-gray-300"
+   560→                  style={{ backgroundColor }}
+   561→                />
+   562→                Couleur de fond
+   563→              </Label>
+   564→              <div className="flex items-center gap-2 flex-wrap">
+   565→                {BG_COLOR_PRESETS.map((c) => (
+   566→                  <button
+   567→                    key={c}
+   568→                    onClick={() => { setBackgroundColor(c); setActiveTemplate(''); }}
+   569→                    className={`w-7 h-7 rounded-full border-2 transition-all hover:scale-110 ${
+   570→                      backgroundColor.toLowerCase() === c.toLowerCase()
+   571→                        ? 'border-gray-900 scale-110 ring-2 ring-gray-300'
+   572→                        : 'border-gray-200'
+   573→                    }`}
+   574→                    style={{ backgroundColor: c }}
+   575→                  />
+   576→                ))}
+   577→                <Input
+   578→                  value={backgroundColor}
+   579→                  onChange={(e) => { setBackgroundColor(e.target.value); setActiveTemplate(''); }}
+   580→                  className="w-20 h-7 text-xs px-2 font-mono"
+   581→                  maxLength={7}
+   582→                />
+   583→              </div>
+   584→            </div>
+   585→          </motion.div>
+   586→
+   587→          <Separator />
+   588→
+   589→          {/* Dot Style & Corner Style */}
+   590→          <motion.div
+   591→            className="grid grid-cols-1 sm:grid-cols-2 gap-4"
+   592→            initial={{ opacity: 0, y: 10 }}
+   593→            animate={{ opacity: 1, y: 0 }}
+   594→            transition={{ delay: 0.15 }}
+   595→          >
+   596→            <div className="space-y-2">
+   597→              <Label className="text-sm font-medium flex items-center gap-1.5">
+   598→                <CornersIcon className="w-3.5 h-3.5 text-gray-400" />
+   599→                Style des points
+   600→              </Label>
+   601→              <div className="flex gap-2 flex-wrap">
+   602→                {(Object.entries(DOT_STYLE_OPTIONS) as [DotStyle, string][]).map(
+   603→                  ([key, label]) => (
+   604→                    <button
+   605→                      key={key}
+   606→                      onClick={() => { setDotStyle(key); setActiveTemplate(''); }}
+   607→                      className={`px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+   608→                        dotStyle === key
+   609→                          ? 'border-purple-500 bg-purple-50 text-purple-700'
+   610→                          : 'border-gray-200 text-gray-600 hover:border-gray-300'
+   611→                      }`}
+   612→                    >
+   613→                      {label}
+   614→                    </button>
+   615→                  ),
+   616→                )}
+   617→              </div>
+   618→            </div>
+   619→
+   620→            <div className="space-y-2">
+   621→              <Label className="text-sm font-medium">Style des coins</Label>
+   622→              <div className="flex gap-2 flex-wrap">
+   623→                {(Object.entries(CORNER_STYLE_OPTIONS) as [CornerStyle, string][]).map(
+   624→                  ([key, label]) => (
+   625→                    <button
+   626→                      key={key}
+   627→                      onClick={() => { setCornerStyle(key); setActiveTemplate(''); }}
+   628→                      className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+   629→                        cornerStyle === key
+   630→                          ? 'border-purple-500 bg-purple-50 text-purple-700'
+   631→                          : 'border-gray-200 text-gray-600 hover:border-gray-300'
+   632→                      }`}
+   633→                    >
+   634→                      {label}
+   635→                    </button>
+   636→                  ),
+   637→                )}
+   638→              </div>
+   639→            </div>
+   640→          </motion.div>
+   641→
+   642→          {/* Error Correction & Logo */}
+   643→          <motion.div
+   644→            className="grid grid-cols-1 sm:grid-cols-2 gap-4"
+   645→            initial={{ opacity: 0, y: 10 }}
+   646→            animate={{ opacity: 1, y: 0 }}
+   647→            transition={{ delay: 0.2 }}
+   648→          >
+   649→            <div className="space-y-2">
+   650→              <Label className="text-sm font-medium flex items-center gap-1.5">
+   651→                <Shield className="w-3.5 h-3.5 text-gray-400" />
+   652→                Correction d&apos;erreur
+   653→              </Label>
+   654→              <Select
+   655→                value={errorCorrection}
+   656→                onValueChange={(v) => { setErrorCorrection(v as ErrorCorrectionLevel); setActiveTemplate(''); }}
+   657→              >
+   658→                <SelectTrigger className="w-full">
+   659→                  <SelectValue />
+   660→                </SelectTrigger>
+   661→                <SelectContent>
+   662→                  {(Object.entries(ERROR_CORRECTION_OPTIONS) as [ErrorCorrectionLevel, { label: string; description: string }][]).map(
+   663→                    ([key, opt]) => (
+   664→                      <SelectItem key={key} value={key}>
+   665→                        <span className="font-medium">{opt.label}</span>
+   666→                        <span className="text-gray-400 ml-1">— {opt.description}</span>
+   667→                      </SelectItem>
+   668→                    ),
+   669→                  )}
+   670→                </SelectContent>
+   671→              </Select>
+   672→              <p className="text-[10px] text-gray-400">
+   673→                Un niveau plus élevé permet de lire le QR même partiellement masqué
+   674→              </p>
+   675→            </div>
+   676→
+   677→            <div className="space-y-2">
+   678→              <Label className="text-sm font-medium flex items-center gap-1.5">
+   679→                <ImageIcon className="w-3.5 h-3.5 text-gray-400" />
+   680→                Logo central
+   681→              </Label>
+   682→              <div className="flex gap-2 flex-wrap">
+   683→                {(
+   684→                  [
+   685→                    ['aucun', 'Aucun', 'X'],
+   686→                    ['wifi', 'Wi-Fi', 'Wifi'],
+   687→                    ['maison', 'Maison', 'Home'],
+   688→                    ['liste', 'Liste', 'ListChecks'],
+   689→                  ] as [LogoPresetKey, string, string][]
+   690→                ).map(([key, label]) => {
+   691→                  const IconComp =
+   692→                    key === 'wifi' ? Wifi : key === 'maison' ? Home : key === 'liste' ? ListChecks : Star;
+   693→                  return (
+   694→                    <button
+   695→                      key={key}
+   696→                      onClick={() => { setLogoPreset(key); setActiveTemplate(''); }}
+   697→                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+   698→                        logoPreset === key
+   699→                          ? 'border-purple-500 bg-purple-50 text-purple-700'
+   700→                          : 'border-gray-200 text-gray-600 hover:border-gray-300'
+   701→                      }`}
+   702→                    >
+   703→                      <IconComp className="w-3.5 h-3.5" />
+   704→                      {label}
+   705→                    </button>
+   706→                  );
+   707→                })}
+   708→              </div>
+   709→              <Input
+   710→                placeholder="Ou URL personnalisée..."
+   711→                value={customLogoUrl}
+   712→                onChange={(e) => { setCustomLogoUrl(e.target.value); setLogoPreset('aucun'); setActiveTemplate(''); }}
+   713→                className="h-8 text-xs"
+   714→              />
+   715→            </div>
+   716→          </motion.div>
+   717→
+   718→          {/* Generate Button */}
+   719→          <motion.div
+   720→            className="flex gap-3 pt-2"
+   721→            initial={{ opacity: 0, y: 10 }}
+   722→            animate={{ opacity: 1, y: 0 }}
+   723→            transition={{ delay: 0.25 }}
+   724→          >
+   725→            <Button
+   726→              onClick={handleGenerate}
+   727→              disabled={loading}
+   728→              className="bg-purple-600 hover:bg-purple-700 gap-2"
+   729→              size="lg"
+   730→            >
+   731→              {loading ? (
+   732→                <Loader2 className="w-4 h-4 animate-spin" />
+   733→              ) : (
+   734→                <QrCode className="w-4 h-4" />
+   735→              )}
+   736→              Générer le lot de {quantity}
+   737→            </Button>
+   738→            {generatedBatch && (
+   739→              <Button
+   740→                onClick={downloadPDF}
+   741→                variant="outline"
+   742→                className="border-emerald-500 text-emerald-700 hover:bg-emerald-50 gap-2"
+   743→                size="lg"
+   744→              >
+   745→                <Download className="w-4 h-4" /> Télécharger le PDF
+   746→              </Button>
+   747→            )}
+   748→          </motion.div>
+   749→
+   750→          {/* Generated Result */}
+   751→          <AnimatePresence>
+   752→            {generatedBatch && (
+   753→              <motion.div
+   754→                initial={{ opacity: 0, height: 0 }}
+   755→                animate={{ opacity: 1, height: 'auto' }}
+   756→                exit={{ opacity: 0, height: 0 }}
+   757→              >
+   758→                <Card className="border-0 shadow-sm bg-gradient-to-br from-emerald-50 to-emerald-50/30">
+   759→                  <CardHeader className="pb-3">
+   760→                    <CardTitle className="text-sm font-semibold flex items-center gap-2 text-emerald-800">
+   761→                      <CheckCircle className="w-4 h-4 text-emerald-600" />
+   762→                      Lot généré avec succès
+   763→                      <Badge variant="outline" className="ml-auto text-emerald-600 border-emerald-200 bg-white">
+   764→                        {generatedBatch.qrCodes.length} codes
+   765→                      </Badge>
+   766→                    </CardTitle>
+   767→                    {generatedBatch.name && (
+   768→                      <p className="text-xs text-emerald-600">
+   769→                        Nom : {generatedBatch.name}
+   770→                      </p>
+   771→                    )}
+   772→                  </CardHeader>
+   773→                  <CardContent>
+   774→                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 max-h-80 overflow-y-auto">
+   775→                      {generatedBatch.qrCodes.map((qr) => (
+   776→                        <div
+   777→                          key={qr.id}
+   778→                          className="bg-white rounded-lg p-2 text-center border border-emerald-100 hover:shadow-md transition-shadow"
+   779→                        >
+   780→                          <canvas
+   781→                            ref={(el) => {
+   782→                              if (el) {
+   783→                                canvasRefs.current.set(qr.activationCode, el);
+   784→                                renderQrToCanvas(
+   785→                                  `https://qrdomotik.com/?activate=${qr.activationCode}`,
+   786→                                  el,
+   787→                                );
+   788→                              }
+   789→                            }}
+   790→                            width={80}
+   791→                            height={80}
+   792→                            className="mx-auto"
+   793→                          />
+   794→                          <p className="text-[9px] font-mono text-gray-500 mt-1.5 truncate">
+   795→                            {qr.activationCode}
+   796→                          </p>
+   797→                        </div>
+   798→                      ))}
+   799→                    </div>
+   800→                  </CardContent>
+   801→                </Card>
+   802→              </motion.div>
+   803→            )}
+   804→          </AnimatePresence>
+   805→        </div>
+   806→
+   807→        {/* Right: Live Preview */}
+   808→        <motion.div
+   809→          className="lg:col-span-1"
+   810→          initial={{ opacity: 0, x: 20 }}
+   811→          animate={{ opacity: 1, x: 0 }}
+   812→          transition={{ delay: 0.15 }}
+   813→        >
+   814→          <Card className="border-0 shadow-sm sticky top-20">
+   815→            <CardHeader className="pb-3">
+   816→              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+   817→                <Eye className="w-4 h-4 text-gray-400" />
+   818→                Aperçu en direct
+   819→              </CardTitle>
+   820→            </CardHeader>
+   821→            <CardContent>
+   822→              <div
+   823→                className="rounded-xl p-4 flex items-center justify-center"
+   824→                style={{ backgroundColor: '#F9FAFB' }}
+   825→              >
+   826→                <div
+   827→                  ref={previewRef}
+   828→                  className="rounded-lg overflow-hidden shadow-sm"
+   829→                  style={{ backgroundColor }}
+   830→                />
+   831→              </div>
+   832→
+   833→              <Separator className="my-4" />
+   834→
+   835→              {/* Config Summary */}
+   836→              <div className="space-y-2.5 text-xs">
+   837→                <h4 className="font-semibold text-gray-700 text-[11px] uppercase tracking-wide">
+   838→                  Configuration actuelle
+   839→                </h4>
+   840→
+   841→                <div className="flex items-center justify-between">
+   842→                  <span className="text-gray-500">Quantité</span>
+   843→                  <Badge variant="outline" className="text-[10px] h-5">
+   844→                    {quantity} codes
+   845→                  </Badge>
+   846→                </div>
+   847→
+   848→                <div className="flex items-center justify-between">
+   849→                  <span className="text-gray-500">Couleur</span>
+   850→                  <div className="flex items-center gap-1.5">
+   851→                    <div
+   852→                      className="w-3.5 h-3.5 rounded-sm border border-gray-200"
+   853→                      style={{ backgroundColor: color }}
+   854→                    />
+   855→                    <span className="font-mono text-gray-600">{color}</span>
+   856→                  </div>
+   857→                </div>
+   858→
+   859→                <div className="flex items-center justify-between">
+   860→                  <span className="text-gray-500">Fond</span>
+   861→                  <div className="flex items-center gap-1.5">
+   862→                    <div
+   863→                      className="w-3.5 h-3.5 rounded-sm border border-gray-200"
+   864→                      style={{ backgroundColor }}
+   865→                    />
+   866→                    <span className="font-mono text-gray-600">{backgroundColor}</span>
+   867→                  </div>
+   868→                </div>
+   869→
+   870→                <div className="flex items-center justify-between">
+   871→                  <span className="text-gray-500">Points</span>
+   872→                  <span className="text-gray-700 font-medium">
+   873→                    {DOT_STYLE_OPTIONS[dotStyle]}
+   874→                  </span>
+   875→                </div>
+   876→
+   877→                <div className="flex items-center justify-between">
+   878→                  <span className="text-gray-500">Coins</span>
+   879→                  <span className="text-gray-700 font-medium">
+   880→                    {CORNER_STYLE_OPTIONS[cornerStyle]}
+   881→                  </span>
+   882→                </div>
+   883→
+   884→                <div className="flex items-center justify-between">
+   885→                  <span className="text-gray-500">Correction</span>
+   886→                  <span className="text-gray-700 font-medium">
+   887→                    Niveau {errorCorrection}
+   888→                  </span>
+   889→                </div>
+   890→
+   891→                <div className="flex items-center justify-between">
+   892→                  <span className="text-gray-500">Logo</span>
+   893→                  <span className="text-gray-700 font-medium">
+   894→                    {logoPreset === 'aucun' && !customLogoUrl
+   895→                      ? 'Aucun'
+   896→                      : logoPreset !== 'aucun'
+   897→                        ? LOGO_PRESETS[logoPreset].label
+   898→                        : 'Personnalisé'}
+   899→                  </span>
+   900→                </div>
+   901→              </div>
+   902→            </CardContent>
+   903→          </Card>
+   904→        </motion.div>
+   905→      </div>
+   906→    </div>
+   907→  );
+   908→}
+   909→

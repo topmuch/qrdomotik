@@ -2,7 +2,7 @@
 
 import { useSession } from 'next-auth/react';
 import { Suspense } from 'react';
-import { UserDashboard } from '@/components/dashboard/UserDashboard';
+import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Navbar } from '@/components/landing/Navbar';
 import { HeroSection } from '@/components/landing/HeroSection';
 import { HowItWorks } from '@/components/landing/HowItWorks';
@@ -17,8 +17,6 @@ import { FinalCTA } from '@/components/landing/FinalCTA';
 import { Footer } from '@/components/landing/Footer';
 import { CursorGlow } from '@/components/landing/CursorGlow';
 import { AuthDialog } from '@/components/landing/AuthDialog';
-import { AdminPanel } from '@/components/landing/AdminPanel';
-import { UserPanel } from '@/components/landing/UserPanel';
 import { ActivationOverlay } from '@/components/physical-qr/ActivationOverlay';
 
 function ActivationOverlayInner() {
@@ -47,8 +45,6 @@ function LandingPage() {
       </main>
       <Footer />
       <AuthDialog />
-      <AdminPanel />
-      <UserPanel />
     </div>
   );
 }
@@ -56,9 +52,8 @@ function LandingPage() {
 export default function Page() {
   const { data: session, status } = useSession();
 
-  // Si connecté : dashboard. Sinon : landing page.
   if (status === 'authenticated' && session) {
-    return <UserDashboard />;
+    return <DashboardLayout />;
   }
 
   return <LandingPage />;

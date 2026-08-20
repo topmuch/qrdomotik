@@ -1,0 +1,575 @@
+     1→---
+     2→Task ID: 1
+     3→Agent: Main Orchestrator
+     4→Task: Étape 1 — Structure projet V2 + Schéma DB complet
+     5→
+     6→Work Log:
+     7→- Analysé le schéma V1 existant (9 tables, 9 QR types)
+     8→- Conçu le schéma V2 complet (15 tables, 13 QR types)
+     9→- Mis à jour prisma/schema.prisma avec toutes les tables V1+V2
+    10→- Tables V1 enrichies : HomeMember (nickname, points, invitedAt, joinedAt, updatedAt), QrCode (isPrivate), Product (isOnShoppingList), ProductInstance (homeId), User (avatarColor, assignedChores relation)
+    11→- Tables V2 nouvelles : Chore, ChoreCompletion, Invitation, GuestbookEntry, PushSubscription, Notification
+    12→- Poussé le schéma en DB avec db:push --force-reset
+    13→- Généré le client Prisma
+    14→- Mis à jour src/types/index.ts avec tous les types V2 (QrType étendu, permissions par rôle, types de contenu V2, enums enrichis)
+    15→- Mis à jour src/lib/constants.ts avec constantes V2 (seuils, limites, cooldowns, rate limiting, avatar colors)
+    16→- Mis à jour src/store/home-store.ts avec état V2 (membres, notifications, permissions, refreshAll)
+    17→- ESLint passe sans erreur
+    18→- Dev server compile et sert la page (22KB HTML, titre correct)
+    19→
+    20→Stage Summary:
+    21→- 15 tables Prisma (9 V1 + 6 V2)
+    22→- 13 types de QR codes (9 V1 + 4 V2: guestbook, energy_counter, keys_tracker, daily_menu)
+    23→- Système de permissions par rôle (owner/admin/member/child) avec matrice fine
+    24→- Types TypeScript complets pour toutes les entités V2
+    25→- Store Zustand enrichi avec gestion membres, notifications, permissions
+    26→- Base de données synchronisée et Prisma client régénéré
+    27→---
+    28→Task ID: 2b
+    29→Agent: API Invitations Agent
+    30→Task: Création de l'API Invitations pour le système multi-utilisateurs
+    31→
+    32→Work Log:
+    33→- Lu le worklog, permissions.ts, constants.ts, schema.prisma, types/index.ts et routes existantes pour comprendre les patterns du projet
+    34→- Créé /api/invitations/route.ts (GET + POST)
+    35→  - GET: liste les invitations pending d'une maison (query param homeId), requiert canInviteMembers, retourne les invitations avec nom de l'inviteur
+    36→  - POST: crée une invitation, validation Zod v4 (email, role enum, nickname optionnel), vérifie canInviteMembers + INVITABLE_ROLES, vérifie email pas déjà membre, vérifie pas d'invitation pending en doublon, vérifie limite MAX_MEMBERS_PER_HOME, génère token via generateInvitationToken(), expireAt = now + INVITATION_EXPIRY_DAYS, crée ActivityLog 'member_invited'
+    37→- Créé /api/invitations/[token]/route.ts (GET + POST)
+    38→  - GET: public (pas d'auth), retourne homeName/inviterName/role/nickname/email, vérifie token existe + pas expiré/révoqué/accepté, auto-marque les invitations expirées
+    39→  - POST: auth requise, vérifie email utilisateur correspond à invitation, vérifie pas déjà membre, crée HomeMember avec joinedAt, met à jour invitation status='accepted', crée ActivityLog 'member_joined', retourne les infos du membership
+    40→- Utilisé Zod v4 (import z from 'zod/v4'), patterns Next.js 16 (params: Promise), format réponse standard { success, data, error, message }
+    41→
+    42→Stage Summary:
+    43→- 2 fichiers API créés : /api/invitations/route.ts et /api/invitations/[token]/route.ts
+    44→- 4 endpoints : GET list, POST create, GET details (public), POST accept
+    45→- Sécurité complète : permission checks, INVITABLE_ROLES validation, doublon email/membre, limite membres, auto-expiration
+    46→- Activity logs pour 'member_invited' et 'member_joined'
+    47→---
+    48→Task ID: 2c+2d
+    49→Agent: API Members + Notifications Agent
+    50→Task: Creation de l API Membres et de l API Notifications
+    51→
+    52→Work Log:
+    53→- Lu le worklog, permissions.ts, schema.prisma, types/index.ts et routes existantes
+    54→- Cree /api/members/route.ts (GET + PATCH + DELETE)
+    55→  - GET: liste les membres d une maison (query homeId), auth + membership, retourne membres avec user info + points, tri owner > role > joinedAt
+    56→  - PATCH: modifie role/nickname, canManageMembers (owner), bloque auto-modif role et dernier owner, ActivityLog member_role_changed
+    57→  - DELETE: retire membre, canManageMembers (owner), bloque retrait de soi-meme et dernier owner, cascade delete
+    58→- Cree /api/notifications/route.ts (GET + PATCH)
+    59→  - GET: liste notifications utilisateur, unreadOnly filter, homeName inclus, 50 max, retourne unreadCount
+    60→  - PATCH: marque comme lues, 3 modes (id unique / ids lot / all non lues), retourne markedCount
+    61→
+    62→Stage Summary:
+    63→- 2 fichiers API : /api/members/route.ts et /api/notifications/route.ts
+    64→- 5 endpoints total
+    65→- Securite : canManageMembers, userId filter sur notifications
+    66→- Validations : auto-modif role bloquee, dernier owner protege, retrait soi-meme bloque
+    67→- Activity log pour member_role_changed
+    68→---
+    69→---
+    70→Task ID: 2e
+    71→Agent: Dashboard UI Agent
+    72→Task: Création du panneau Membres, du dialogue d'invitation et de la cloche de notifications
+    73→
+    74→Work Log:
+    75→- Lu le worklog, page.tsx, home-store.ts, types/index.ts, permissions.ts, constants.ts pour comprendre les patterns et types existants
+    76→- Créé /src/components/dashboard/MembersPanel.tsx (537 lignes)
+    77→  - Panneau complet affichant la liste des membres avec avatars colorés (hash-based fallback), badges de rôle (MEMBER_ROLE_LABELS/COLORS)
+    78→  - Affichage des points pour les enfants avec icône étoile, surnom en italique guillemets
+    79→  - Boutons Modifier le rôle et Retirer pour le owner (sauf soi-même et autres owners)
+    80→  - Bouton Surnom pour les enfants (owner only)
+    81→  - Section invitations en attente avec fetch GET /api/invitations?homeId=xxx
+    82→  - 3 dialogs intégrés : modification rôle (Select), modification surnom (Input), confirmation retrait (destructive)
+    83→  - Appels API : PATCH /api/members (rôle, surnom), DELETE /api/members (retrait)
+    84→  - Animations Framer Motion sur la liste des membres et invitations (AnimatePresence, motion.div)
+    85→  - Responsive mobile-first, ScrollArea max-h-96
+    86→- Créé /src/components/dashboard/InviteDialog.tsx (130 lignes)
+    87→  - Dialog shadcn/ui avec formulaire : email (validation regex), surnom optionnel, rôle (Select filtré par INVITABLE_ROLES)
+    88→  - POST /api/invitations avec { homeId, email, role, nickname }
+    89→  - Toast succès/erreur, callback onSuccess pour refresh members + invitations
+    90→  - Reset du formulaire à l'ouverture, role par défaut = premier rôle invitable
+    91→- Créé /src/components/dashboard/NotificationBell.tsx (262 lignes)
+    92→  - Icône Bell avec badge rouge animé (spring animation) montrant le compteur unreadCount
+    93→  - Popover shadcn/ui aligné à droite, largeur responsive w-80/sm:w-96
+    94→  - Liste des 10 dernières notifications avec icônes par type (8 types), titre, body, temps relatif
+    95→  - Point vert pour notifications non lues, optimiste mark-as-read au clic (PATCH /api/notifications)
+    96→  - Bouton Tout marquer comme lu en footer (PATCH avec markAll:true)
+    97→  - Auto-refresh toutes les 30 secondes quand le popover est ouvert (setInterval nettoyé au unmount)
+    98→  - État vide avec message Aucune notification
+    99→  - Tous les textes en français
+   100→
+   101→Stage Summary:
+   102→- 3 fichiers créés : MembersPanel.tsx, InviteDialog.tsx, NotificationBell.tsx
+   103→- Composants 100% client-side ('use client')
+   104→- Utilisation exclusive de shadcn/ui (Dialog, Popover, Select, Badge, ScrollArea, Separator, Button, Input, Label)
+   105→- Intégration avec le store Zustand (useHomeStore) et les types partagés
+   106→- Bracket balance vérifié sur les 3 fichiers
+   107→- Aucun fichier existant modifié
+   108→---
+   109→---
+   110→Task ID: 2a
+   111→Agent: Main Orchestrator
+   112→Task: Créer l'utilitaire de permissions centralisé
+   113→
+   114→Work Log:
+   115→- Créé src/lib/permissions.ts avec checkMembership(), requirePermission(), hasPermission(), hasMinRole()
+   116→- Matrice de permissions ROLE_PERMISSIONS importée depuis types/index.ts
+   117→- INVITABLE_ROLES: quels rôles chaque rôle peut inviter
+   118→- generateInvitationToken(): token hex 32 chars sécurisé
+   119→- homeWhere(): helper Prisma pour filtrer par maison
+   120→
+   121→Stage Summary:
+   122→- Utilitaire centralisé pour RLS émulé au niveau applicatif
+   123→- Utilisé par toutes les APIs V2
+   124→
+   125→---
+   126→Task ID: 2b
+   127→Agent: Sub-agent
+   128→Task: API Invitations (liste, création, acceptation)
+   129→
+   130→Work Log:
+   131→- Créé src/app/api/invitations/route.ts (GET + POST)
+   132→- Créé src/app/api/invitations/[token]/route.ts (GET + POST accept)
+   133→- Validation complète: email dupliqué, invitation en attente, limite membres
+   134→- Auto-expiration des invitations lors du GET
+   135→- ActivityLogs de type member_invited et member_joined
+   136→
+   137→Stage Summary:
+   138→- 4 endpoints d'invitation fonctionnels
+   139→- Zod v4, Next.js 16 params pattern
+   140→
+   141→---
+   142→Task ID: 2c+2d
+   143→Agent: Sub-agent
+   144→Task: API Members + Notifications
+   145→
+   146→Work Log:
+   147→- Créé src/app/api/members/route.ts (GET, PATCH, DELETE)
+   148→- Créé src/app/api/notifications/route.ts (GET, PATCH)
+   149→- Tri des membres par hiérarchie de rôle
+   150→- Permission canManageMembers (owner seul)
+   151→- Notifications: filtre unreadOnly, marquer lu (unique/batch/all)
+   152→
+   153→Stage Summary:
+   154→- 5 endpoints membres + notifications
+   155→- Protection complète contre suppression du dernier owner
+   156→
+   157→---
+   158→Task ID: 2e
+   159→Agent: Sub-agent full-stack-developer
+   160→Task: Frontend Members Panel + Invite Dialog + Notification Bell
+   161→
+   162→Work Log:
+   163→- Créé src/components/dashboard/MembersPanel.tsx (537 lignes)
+   164→- Créé src/components/dashboard/InviteDialog.tsx (130 lignes)
+   165→- Créé src/components/dashboard/NotificationBell.tsx (262 lignes)
+   166→- Intégré dans page.tsx: imports, icones V2, bouton Membres, NotificationBell dans header
+   167→- Mise à jour QR_COLOR_MAP et QR_ICON_MAP pour les 13 types V2
+   168→- Footer mis à jour: 13 modules, multi-utilisateurs, rôles, notifications
+   169→
+   170→Stage Summary:
+   171→- 3 composants frontend complets
+   172→- Dashboard intégré avec panneau membres, cloche notifications
+   173→- 13 types de QR codes supportés dans le sélecteur
+   174→
+   175→---
+   176→Task ID: 3
+   177→Agent: Main Agent
+   178→Task: Étape 3 — Configuration PWA complète
+   179→
+   180→Work Log:
+   181→- Generated PWA app icon (1024x1024) via z-ai image-gen CLI, resized to 192x192 and 512x512 with sharp
+   182→- Created public/manifest.json: name, short_name, display=standalone, theme_color=#059669, 3 icon entries, screenshot, shortcut
+   183→- Created public/sw.js: install/activate/fetch lifecycle, cache-first for static assets, network-first for API routes, push notification handler, notification click handler, offline fallback page
+   184→- Created src/lib/sw-register.ts: registerServiceWorker(), fetchVapidPublicKey(), subscribeToPushNotifications(), unsubscribeFromPushNotifications(), urlBase64ToUint8Array helper
+   185→- Created src/lib/vapid.ts: ECDH prime256v1 VAPID key generation, getVapidKeys(), env-based or auto-gen for dev
+   186→- Created src/lib/push.ts: sendPushToUser(), sendPushToHome(), createNotification() using web-push package
+   187→- Created src/hooks/use-install-prompt.ts: beforeinstallprompt/appinstalled event capture, isInstallable/isInstalled/isStandalone detection, promptInstall() callback
+   188→- Created src/components/pwa-init.tsx: SW auto-registration on mount, sw-updated toast with reload action, renders InstallButton
+   189→- Created src/components/dashboard/InstallButton.tsx: Animated floating card with install prompt, success state, 7-day dismiss with localStorage
+   190→- Created src/components/dashboard/NotificationPermission.tsx: 3s-delayed amber banner for notification permission request, push subscribe on accept, dismiss to localStorage
+   191→- Created src/app/api/push/subscribe/route.ts: POST to upsert PushSubscription, DELETE to remove
+   192→- Created src/app/api/push/vapid-key/route.ts: GET to expose VAPID public key to client
+   193→- Updated src/app/layout.tsx: Viewport export (theme-color, device-width), metadataBase, manifest link, apple-touch-icon, apple-mobile-web-app-capable, appleWebApp config, PwaInit component
+   194→- Updated src/app/page.tsx: imported NotificationPermission, added to main content area, footer badge updated to 'PWA'
+   195→- Installed web-push + @types/web-push packages
+   196→- Fixed all ESLint react-hooks/set-state-in-effect errors (lazy state init, derived values, callback patterns)
+   197→
+   198→Stage Summary:
+   199→- 14 new files created for PWA infrastructure
+   200→- Full PWA manifest with 3 icons (192x192, 512x512, 512x512 maskable)
+   201→- Service Worker with offline caching, API caching, push notification support
+   202→- Install prompt system with animated floating button, auto-dismiss, success feedback
+   203→- Push notification system: VAPID key management, subscription API, send utilities
+   204→- Notification permission request banner with delayed display
+   205→- Browser-verified: manifest loaded, theme-color #059669, SW active, all assets 200
+   206→- ESLint passes clean with 0 errors
+   207→
+   208→---
+   209→Task ID: V3-E1
+   210→Agent: Main Agent
+   211→Task: Étape 1 V3 — Schéma DB complet + Types + Utilitaires géolocalisation
+   212→
+   213→Work Log:
+   214→- Analysé les 11 nouvelles tables V3 et planifié les adaptations SQLite (PostGIS → lat/lng + Haversine, JSONB → String JSON, TEXT[] → String JSON array, DECIMAL → Float, CHECK → validation applicative)
+   215→- Étendu prisma/schema.prisma de 15 à 26 tables :
+   216→  - Home: +latitude, +longitude (géolocalisation)
+   217→  - User: +phone, +merchantProfile, +professionalProfile, +writtenReviews, +promoRedemptions, +transactions (payer/receiver)
+   218→  - PushSubscription: +homeId (nullable pour V3)
+   219→  - Notification: homeId nullable (notifications pro sans home), +home relation
+   220→  - QrCode: +emergencyConfig, +serviceRequests relations
+   221→  - NOUVEAU: Merchant (commerçants locaux avec lat/lng, opening_hours_json, subscription_tier)
+   222→  - NOUVEAU: Promo (promotions locales + scrapées, keywords_json, flash_sale fields)
+   223→  - NOUVEAU: PromoRedemption (coupons utilisés avec commission)
+   224→  - NOUVEAU: ScrapingJob (logs des tâches Playwright)
+   225→  - NOUVEAU: Professional (artisans avec lat/lng, service_radius_km, verification_docs_json)
+   226→  - NOUVEAU: Service (catalogue de services par pro)
+   227→  - NOUVEAU: ServiceRequest (demandes de réservation avec urgency_level, photos_json)
+   228→  - NOUVEAU: Review (avis 1-5 étoiles, unique par service_request)
+   229→  - NOUVEAU: EmergencyQrCode (config QR urgence avec equipment_info_json)
+   230→  - NOUVEAU: Subscription (abonnements pros/commerçants avec stripe_subscription_id)
+   231→  - NOUVEAU: Transaction (micro-paiements: flash_sale, commission, subscription, redemption)
+   232→- Corrigé 3 erreurs de relations Prisma (one-to-one, opposite missing)
+   233→- db:push --force-reset réussi, 26 tables créées
+   234→- Étendu src/types/index.ts avec ~280 lignes V3 :
+   235→  - QrType: +emergency_service, +neighborhood (15 types total)
+   236→  - QR_TYPE_CATEGORIES: +categorie 'quartier', emergency_service dans 'securite'
+   237→  - MerchantCategory (14 catégories), labels et icons
+   238→  - ProfessionalCategory (13 métiers en 4 groupes), labels, icons, group_labels
+   239→  - SubscriptionTier, TransactionType, TransactionStatus
+   240→  - ServiceRequestStatus (6 états), UrgencyLevel, PriceUnit
+   241→  - EmergencyCategory, ScrapingSource/Status
+   242→  - V3ActivityActionType, V3NotificationType
+   243→  - EmergencyServiceContent, NeighborhoodContent interfaces
+   244→  - SubscriptionPlanInfo, CommissionConfig interfaces
+   245→- Créé src/lib/geo.ts : haversineDistance, filterByRadius, formatDistance, boundingBox, extractKeywords, matchScore
+   246→- Étendu src/lib/constants.ts avec V3 :
+   247→  - DEFAULT_MAP_CENTER (Dakar), search/flash radii
+   248→  - SCRAPING_CRON_HOUR, SCRAPING_MAX_RETRIES, SCRAPING_USER_AGENT
+   249→  - PRICING: 6 plans (merchant premium/featured, pro premium/featured, flash_sale, verification badge)
+   250→  - COMMISSIONS: 6 configs (flash_sale, 4 service_match par catégorie, redemption)
+   251→  - Limites V3, FLASH_SALE_DURATIONS, EMERGENCY_CATEGORIES
+   252→- ESLint: 0 erreurs
+   253→- Prisma generate: succès
+   254→
+   255→Stage Summary:
+   256→- 26 tables Prisma (V1: 9, V2: 6, V3: 11)
+   257→- Remplacement PostGIS par Haversine applicatif (src/lib/geo.ts)
+   258→- Système de types V3 complet (~280 lignes, 30+ types exportés)
+   259→- Configuration monétisation avec prix et commissions
+   260→- DB pushé et client régénéré avec succès
+   261→
+   262→---
+   263→Task ID: v3e2-2
+   264→Agent: Scraping Service Agent
+   265→Task: Création du mini-service de scraping Playwright (Carrefour/Auchan)
+   266→
+   267→Work Log:
+   268→- Lu worklog.md, prisma/schema.prisma (modèles ScrapingJob, Promo), src/lib/constants.ts (SCRAPING_*), src/types/index.ts (ScrapingSource, ScrapingJobStatus, PromoSource)
+   269→- Créé mini-services/scraping-service/package.json — @qrdomotik/scraping-service, deps playwright + @prisma/client, script dev bun --hot
+   270→- Créé mini-services/scraping-service/tsconfig.json — ES2022, ESNext, bundler, strict
+   271→- Créé mini-services/scraping-service/db.ts — PrismaClient singleton, import relatif du client parent, DATABASE_URL résolu en chemin absolu via import.meta.dir
+   272→- Créé mini-services/scraping-service/types.ts — ScrapedPromo, ScrapingResult, ScrapingSource, constantes SCRAPING_CRON_HOUR/MAX_RETRIES/RETRY_DELAY/USER_AGENT
+   273→- Créé mini-services/scraping-service/scrapers/base.ts — BaseScraper abstraite avec createBrowser (Chromium headless, anti-detect args), closeBrowser, runWithRetry (3 tentatives), extractKeywords (stop words FR), truncate
+   274→- Créé mini-services/scraping-service/scrapers/carrefour.ts — CarrefourScraper avec navigation carrefour.fr/promotions, sélecteurs multiples (data-testid, génériques), détection anti-bot, parsing prix/dates/images, fallback gracieux
+   275→- Créé mini-services/scraping-service/scrapers/auchan.ts — AuchanScraper même structure adaptée à auchan.fr/promotions
+   276→- Créé mini-services/scraping-service/scheduler.ts — ScrapingScheduler avec start (cron 3h00 via setTimeout+setInterval), stop, runAllSources (séquentiel), runSource (createJob → scrape → insertPromos → updateJob → deleteExpired), getStatus
+   277→- Créé mini-services/scraping-service/index.ts — Bun.serve() port 3005, 7 routes : GET /health, GET /scheduler/status, POST /trigger (source/all), GET /jobs (20 derniers), GET /jobs/:id, GET /stats (agrégations), CORS headers
+   278→- bun install réussi (playwright 1.62.1, @prisma/client 6.19.3)
+   279→- Playwright Chromium installé (v1234, 184+114 MB)
+   280→- Corrigé problème DATABASE_URL (chemin relatif ne fonctionnait pas → chemin absolu via import.meta.dir + path.resolve)
+   281→- Testé tous les endpoints : /health 200, /scheduler/status 200, /jobs 200 (vide), /stats 200, /jobs/:id 404, POST /trigger fonctionne (timeout sur scraping réel car sites distants, comportement attendu)
+   282→
+   283→Stage Summary:
+   284→- Mini-service complet sur port 3005 avec 8 fichiers
+   285→- 2 scrapers Playwright (Carrefour + Auchan) avec retry, anti-bot detection, fallback gracieux
+   286→- Planificateur cron automatique (3h00) + déclenchement manuel via POST /trigger
+   287→- 6 endpoints HTTP : health, scheduler/status, trigger, jobs, jobs/:id, stats
+   288→- Intégration Prisma via import relatif du client parent, chemin DB absolu
+   289→- Aucun fichier existant modifié dans src/ ou prisma/
+   290→---
+   291→Task ID: v3e2-2
+   292→Agent: Main Agent
+   293→Task: Étape 2 V3 — Système de scraping Playwright (Carrefour/Auchan)
+   294→
+   295→Work Log:
+   296→- Analysé les modèles ScrapingJob et Promo du schéma Prisma
+   297→- Créé le mini-service scraping-service (port 3005) avec Playwright, scrapers Carrefour/Auchan, scheduler cron, 6 endpoints HTTP
+   298→- Découvert que le sandbox restreint la communication inter-ports (Caddy ne peut pas proxy vers 3005)
+   299→- Restructuré : déplacé la logique de scraping directement dans l'app Next.js (pas de mini-service séparé)
+   300→- Créé src/lib/scrapers/ (types.ts, base.ts, carrefour.ts, auchan.ts) avec scrapers Playwright
+   301→- Créé src/lib/scraping-scheduler.ts : scheduler singleton avec auto-start (Proxy), cron 3h00, lazy-import Playwright
+   302→- Créé 5 API routes : /api/scraping/jobs (GET), /api/scraping/stats (GET), /api/scraping/promos (GET), /api/scraping/trigger (POST), /api/scraping/scheduler (GET)
+   303→- Résolu crash Next.js : Playwright ne peut pas être importé au niveau module → lazy import dynamique dans runSource()
+   304→- Installé playwright dans le projet principal
+   305→- Vérifié les 4 endpoints GET (jobs, stats, promos, scheduler) retournent des données correctes
+   306→- ESLint : 0 erreurs
+   307→- Browser-verified : page d'auth rend correctement, titre "QR Domotik — Maison Phygital via QR Codes Dynamiques"
+   308→
+   309→Stage Summary:
+   310→- 8 nouveaux fichiers créés (4 scrapers, 1 scheduler, 4 API routes, 1 mini-service conservé en backup)
+   311→- Scrapers Carrefour/Auchan avec retry 3x, anti-bot detection, extraction prix/dates/mots-clés
+   312→- Scheduler cron intégré (singleton, auto-start via Proxy, lazy Playwright import)
+   313→- 5 endpoints API fonctionnels (jobs, stats, promos, trigger, scheduler)
+   314→- Architecture : scraping embedded dans Next.js (pas de mini-service séparé) pour compatibilité sandbox
+   315→---
+   316→Task ID: V3-E4toE10
+   317→Agent: Main Agent
+   318→Task: Étapes 4 à 10 V3 — Modules Marketplace Pro complets
+   319→
+   320→Work Log:
+   321→- Lu le worklog, schema.prisma (26 tables), types/index.ts, constants.ts, geo.ts, page.tsx (850 lignes)
+   322→- Créé les répertoires : neighborhood, flash-sale, artisan, booking, emergency, monetization, reviews
+   323→- Créé les répertoires API : merchants, promos, promo-redemptions, flash-sales, professionals, services, service-requests, emergency-qr, subscriptions, transactions, reviews
+   324→
+   325→Étape 4 — Mon Quartier Connecté :
+   326→- Créé /api/merchants/route.ts (GET avec Haversine + bounding box, POST registration)
+   327→- Créé /api/promos/route.ts (GET avec geo filter, smart matching via extractKeywords/matchScore, source filter, flash filter, category filter)
+   328→- Créé /api/promo-redemptions/route.ts (GET list, POST redeem avec doublon check et commission auto)
+   329→- Créé NeighborhoodView.tsx (tabs map/promos/merchants, geo button, category filter, source filter, shopping list matching, coupon validation modal, simulated map with SVG grid, merchant pins, promo detail with discount calculation)
+   330→
+   331→Étape 5 — Ventes Flash :
+   332→- Créé /api/flash-sales/route.ts (GET active flash sales avec temps restant calculé, POST create avec transaction fee, formatTimeRemaining helper)
+   333→- Créé FlashSaleView.tsx (liste live avec countdown 1s, progress bar, create dialog, detail modal, animation pour dernières 5 min)
+   334→
+   335→Étape 6 — Artisan Registration + Pro Dashboard :
+   336→- Créé /api/professionals/route.ts (GET geo filter avec category/urgent/search, POST register, PATCH update/verify docs)
+   337→- Créé /api/services/route.ts (GET list, POST create avec limit MAX_SERVICES_PER_PROFESSIONAL)
+   338→- Créé ArtisanDashboard.tsx (search/filter par catégorie, liste avec rating/distance/badge vérifié, register dialog complet, detail modal avec upload docs)
+   339→
+   340→Étape 7 — Booking System :
+   341→- Créé /api/service-requests/route.ts (GET list by user/pro, POST create with notification, PATCH status update)
+   342→- Créé BookingView.tsx (funnel 4 étapes: search → details → confirm → success, tabs book/history, urgency selector, date/time, request history with status badges)
+   343→
+   344→Étape 8 — Emergency QR Codes :
+   345→- Créé /api/emergency-qr/route.ts (GET pros dispo en urgence par catégorie avec home equipment info, POST create/update config)
+   346→- Créé EmergencyView.tsx (category selector coloré plombier/électricien/serrurier/chauffagiste, equipment info panel, pro cards avec bouton appel, boutons secours SAMU/Pompiers)
+   347→
+   348→Étape 9 — Unified Monétisation :
+   349→- Créé /api/subscriptions/route.ts (GET list, POST create avec auto-transaction et tier update)
+   350→- Créé /api/transactions/route.ts (GET list, POST create)
+   351→- Créé MonetizationDashboard.tsx (3 tabs overview/pricing/transactions, KPI cards revenus/récurrent/abonnements/transactions, commission breakdown, plans grid, subscribe form)
+   352→
+   353→Étape 10 — Review/Rating System :
+   354→- Créé /api/reviews/route.ts (GET avec aggregate avg/distribution, POST avec doublon check et auto-update pro rating)
+   355→- Créé ReviewSystem.tsx (3 tabs all/write/stats, StarRating component interactif, write form avec max length, stats view avec distribution bar chart, reviews list avec avatars)
+   356→
+   357→Intégration page.tsx :
+   358→- Ajouté 7 imports de composants V3
+   359→- Ajouté 7 icônes V3 (MapPin, Siren, Store, DollarSign, CalendarCheck, Wrench, Flame)
+   360→- Ajouté 2 types QR V3 (emergency_service, neighborhood) dans QR_ICON_MAP et QR_COLOR_MAP
+   361→- Ajouté 15 types dans QrTypeSelector
+   362→- Ajouté 7 états de panel V3 (showNeighborhood, showFlashSale, showArtisan, showBooking, showEmergency, showMonetization, showReviews)
+   363→- Ajouté 7 boutons quick action V3 dans la barre d'actions
+   364→- Ajouté 7 sections de panels V3 avec Card colorées
+   365→- Mis à jour footer : 15 modules, Marketplace Pro, Avis & Notes
+   366→- ESLint : 0 erreurs
+   367→- Dev server : compile et sert correctement
+   368→- Browser verified : auth page rend correctement
+   369→
+   370→Stage Summary:
+   371→- 20 nouveaux fichiers créés (7 API routes, 7 composants frontend, 6 répertoires)
+   372→- 7 étapes V3 implémentées (4 à 10) en une seule session
+   373→- 11 endpoints API total pour V3 Étapes 4-10
+   374→- 7 composants React intégrés dans le dashboard
+   375→- 15 types de QR codes supportés (13 existants + 2 V3)
+   376→- Page.tsx passée de 850 à ~960 lignes
+   377→
+   378→---
+   379→Task ID: LP-AGENT-A
+   380→Agent: Landing Page Components Agent
+   381→Task: Création des 8 composants landing page pour qrdomotik.com
+   382→
+   383→Work Log:
+   384→- Lu worklog.md pour comprendre le contexte projet (V1→V2→V3, 26 tables, Next.js 16, shadcn/ui)
+   385→- Vérifié les dépendances disponibles : framer-motion, react-qr-code, lucide-react, shadcn/ui (Sheet, Badge, Dialog, Button, Card)
+   386→- Créé le répertoire src/components/landing/
+   387→- Créé ScrollReveal.tsx : wrapper Intersection Observer + Framer Motion pour animations fade-in-up avec 4 directions (up/down/left/right), props delay/duration/once
+   388→- Créé FloatingParticles.tsx : particules flottantes (cercles/carrés) avec 3 keyframes CSS, utilise useSyncExternalStore pour isClient + reducedMotion (évite lint react-hooks/set-state-in-effect), palette bleue #2563EB
+   389→- Créé CursorGlow.tsx : halo radial bleu suivant le curseur souris, détection prefers-reduced-motion, lazy initializer pour reducedMotion
+   390→- Créé Navbar.tsx : barre de navigation sticky glassmorphism (backdrop-blur-md, bg-white/80), logo QrCode + texte QR Domotik, 4 liens (Fonctionnalités, Démo, Tarifs, FAQ), CTA arrondi bleu, menu mobile via Sheet, smooth scroll sur ancres, ombre au scroll
+   391→- Créé QRCodeDemo.tsx : carte glassmorphism avec QRCodeSVG (react-qr-code), overlay icône Home, scan line animée, 4 démos cyclables (Wi-Fi, Liste courses, Portier virtuel, Menu du jour), AnimatePresence pour transitions, count-up 0→1247 sur 2s, toast notification « Marie vient de scanner... », pulsing card animation
+   392→- Créé HeroSection.tsx : section min-h-screen avec gradient blobs, FloatingParticles, layout 60/40 desktop, badge version 2, H1 avec gradient text bleu→émeraude, CTA motion.button avec whileHover/whileTap, lien démo, social proof 4.9/5, badges iOS/Android, staggered animations via variants container
+   393→- Créé HowItWorks.tsx : section 3 étapes, H2 + sous-titre centrés, grid 3 colonnes avec lignes connectrices dashed (desktop), cartes hover shadow/translate-y, numéros gradient bleu→émeraude, icônes Palette/Printer/Smartphone, ScrollReveal staggered delays
+   394→- Créé PopularModules.tsx : section grille 6 modules (Wi-Fi, Liste courses, Portier virtuel, Livre d'or, Menu du jour, Suivi médicaments), badges Populaire/Nouveau, Dialog avec aperçu mockup au clic, icônes colorées, ScrollReveal staggered
+   395→- Corrigé 2 erreurs ESLint react-hooks/set-state-in-effect : refactored FloatingParticles avec useSyncExternalStore pour isClient et reducedMotion, refactored CursorGlow avec dérivation hors useEffect
+   396→- ESLint : 0 erreurs
+   397→- Dev server : compile correctement
+   398→
+   399→Stage Summary:
+   400→- 8 composants créés dans src/components/landing/
+   401→- ScrollReveal : wrapper animation réutilisable (4 directions, delay, duration, once)
+   402→- FloatingParticles : particules décoratives avec accessibilité (reduced-motion, aria-hidden)
+   403→- CursorGlow : effet de suivi curseur avec respect prefers-reduced-motion
+   404→- Navbar : navigation responsive glassmorphism avec Sheet mobile + smooth scroll
+   405→- HeroSection : hero complet avec gradient blobs, staggered animations, QR code demo
+   406→- QRCodeDemo : démo interactive avec 4 scénarios, count-up, toast, scan line
+   407→- HowItWorks : 3 étapes avec lignes connectrices et cartes animées
+   408→- PopularModules : grille 6 modules avec Dialog de prévisualisation
+   409→- Tout le texte en français, design responsive mobile-first, palette blue-600/emerald-500/amber-500
+   410→- Aucun fichier existant modifié, 0 erreur ESLint
+   411→---
+   412→Task ID: LP-AGENT-B
+   413→Agent: Landing Page Bottom Sections Agent
+   414→Task: Créer 7 composants landing page (LiveDemo, Advantages, Testimonials, Pricing, FAQ, FinalCTA, Footer)
+   415→
+   416→Work Log:
+   417→- Lu worklog.md pour comprendre le contexte du projet et les patterns existants
+   418→- Vérifié les composants existants (ScrollReveal, FloatingParticles) et UI shadcn disponibles
+   419→- Vérifié les packages installés : react-qr-code@2.2.0, embla-carousel-react@8.6.0
+   420→- Créé LiveDemo.tsx : section démo interactive avec 5 onglets (Wi-Fi, Liste Courses, Portier, Livre d'Or, Menu), QR code dynamique via QRCodeSVG, mockup téléphone avec notch/status bar, dark mode toggle via Switch, bouton régénérer, bouton partager avec toast, gradient animé CSS avec prefers-reduced-motion
+   421→- Créé Advantages.tsx : bento grid 8 avantages (Gratuit 0€/mois, Dynamique, Privé, Rapide, Design, Mobile, Stats, Famille) avec icônes colorées, col-span variés, ScrollReveal stagger
+   422→- Créé Testimonials.tsx : carousel embla-carousel-react avec 6 témoignages, auto-scroll 5s pause-on-hover, navigation par dots, avatars gradient, étoiles amber
+   423→- Créé Pricing.tsx : 2 cartes (Gratuit 0€ et Pro 9,90€), badge 'Recommandé', listes features avec Check icons, Separator, Button outline/bg
+   424→- Créé FAQ.tsx : 5 questions avec Accordion shadcn/ui, styling custom (bg-white rounded-xl border, hover:text-blue-600 triggers)
+   425→- Créé FinalCTA.tsx : CTA avec gradient animé CSS, FloatingParticles, motion.button scale, lien vers #demo, trust badges
+   426→- Créé Footer.tsx : 4 colonnes (Logo+socials, Produit, Légal, Contact), icones Twitter/Linkedin/Instagram, bottom bar copyright
+   427→- Corrigé erreur lint react-hooks/set-state-in-effect dans Testimonials.tsx (éviter appel synchrone setState dans useEffect)
+   428→- ESLint passe sans erreur
+   429→
+   430→Stage Summary:
+   431→- 7 fichiers créés dans src/components/landing/
+   432→- LiveDemo : tabs QR + phone mockup + dark mode + QRCodeSVG
+   433→- Advantages : bento grid 8 cards responsive
+   434→- Testimonials : embla carousel 6 slides auto-scroll
+   435→- Pricing : 2 plans (Gratuit/Pro) avec badge
+   436→- FAQ : 5 questions accordion
+   437→- FinalCTA : gradient CTA + particles
+   438→- Footer : 4 colonnes responsive
+   439→- 0 erreur ESLint, tous textes en français, palette blue-600/emerald-500/amber-500
+   440→- Aucun fichier existant modifié
+   441→
+   442→---
+   443→Task ID: LP-COMPOSE
+   444→Agent: Main Orchestrator
+   445→Task: Composition landing page + correction imports + verification navigateur
+   446→
+   447→Work Log:
+   448→- Corrige import QRCodeSVG -> QRCode (react-qr-code v2.x exporte QRCode comme default)
+   449→- Corrige dans QRCodeDemo.tsx et LiveDemo.tsx
+   450→- Cree page.tsx : composition des 10 sections + CursorGlow + Footer
+   451→- Met a jour layout.tsx : metadata SEO enrichis (OG, Twitter, robots, locale fr_FR)
+   452→- ESLint : 0 erreurs, HTTP 200 (168KB HTML)
+   453→- Browser verification (Agent Browser) : 10 sections, meta tags, responsive mobile, footer
+   454→
+   455→Stage Summary:
+   456→- 15 composants landing page dans src/components/landing/
+   457→- page.tsx remplace le dashboard par la landing publique
+   458→- Palette blue-600/emerald-500/amber-500, glassmorphism, gradients animes
+   459→- Animations Framer Motion + CSS keyframes + embla carousel
+   460→- Effets wahou : cursor glow, floating particles, gradient blobs, scan line, count-up
+   461→- Accessibilite ARIA, prefers-reduced-motion, semantic HTML
+   462→- Responsive mobile-first, 0 erreur ESLint, HTTP 200
+   463→
+   464→---
+   465→Task ID: login-page-rebuild
+   466→Agent: Main Orchestrator
+   467→Task: Refaire la page de connexion / Recreate login page
+   468→
+   469→Work Log:
+   470→- Created Zustand auth store (src/store/auth-store.ts) for shared dialog open/close state
+   471→- Built AuthDialog component (src/components/landing/AuthDialog.tsx) with:
+   472→  - Login and Register tabs with animated sliding indicator
+   473→  - Glassmorphism design with gradient header bar and decorative blobs
+   474→  - Framer Motion animations for tab transitions and field entrance
+   475→  - Password visibility toggle
+   476→  - Form validation with toast error messages
+   477→  - Full integration with NextAuth signIn and /api/auth/register
+   478→  - Auto-login after successful registration
+   479→  - Trust badges (Données sécurisées, Gratuit pour toujours)
+   480→- Updated Navbar.tsx: Added "Connexion" ghost button + wired "Commencer gratuitement" to openAuth
+   481→- Updated HeroSection.tsx: Wired "Créer mon premier QR code gratuit" CTA to openAuth('register')
+   482→- Updated FinalCTA.tsx: Wired "Créer mon compte gratuit" CTA to openAuth('register')
+   483→- Updated page.tsx: Added AuthDialog component
+   484→- Fixed initial error from mixing Radix Dialog animations with Framer Motion AnimatePresence on DialogContent
+   485→- Browser verified all interactions: Navbar Connexion/CTA, Hero CTA, Final CTA, mobile menu, tab switching
+   486→
+   487→Stage Summary:
+   488→- 4 files modified: AuthDialog.tsx (new), Navbar.tsx, HeroSection.tsx, FinalCTA.tsx, page.tsx
+   489→- 1 new store: src/store/auth-store.ts
+   490→- Auth dialog opens from 5 entry points: Navbar Connexion, Navbar CTA, Hero CTA, Final CTA, Mobile menu
+   491→- Login opens with email+password form; Register opens with name+email+password+confirm
+   492→- All browser interactions verified successfully via agent-browser
+   493→
+   494→---
+   495→Task ID: 1
+   496→Agent: Main Orchestrator
+   497→Task: ÉTAPE 1 — Schéma DB pour QR Codes Physiques & Activation (V4)
+   498→
+   499→Work Log:
+   500→- Analysé le schéma existant (26 tables, SQLite + Prisma)
+   501→- Ajouté le champ `role` ('user'|'superadmin') au modèle User avec default 'user'
+   502→- Ajouté les relations V4 sur User: createdBatches, activatedQrCodes, activationLogs
+   503→- Ajouté la relation physicalActivations sur QrCode (lien inverse vers PhysicalQrCode)
+   504→- Créé 3 nouvelles tables Prisma:
+   505→  - QrBatch (TABLE 27): lots générés par superadmin (quantity, designConfigJson, createdBy)
+   506→  - PhysicalQrCode (TABLE 28): QR physiques individuels (activationCode UNIQUE, status, dynamicQrCodeId UNIQUE)
+   507→  - ActivationLog (TABLE 29): historique d'audit (action, details, userId)
+   508→- Ajouté les types TypeScript V4 dans types/index.ts:
+   509→  - UserRole, PhysicalQrStatus, ActivationAction
+   510→  - DesignConfig, DotStyle, BatchQuantity
+   511→  - Labels et couleurs pour l'UI (PHYSICAL_QR_STATUS_LABELS, ACTIVATION_ACTION_LABELS, DOT_STYLE_OPTIONS)
+   512→- Push du schéma en DB: 29 tables, 15 index sur les 3 nouvelles tables
+   513→- Prisma Client regénéré, lint passe
+   514→
+   515→Stage Summary:
+   516→- 29 tables totales (26 existantes + 3 nouvelles V4)
+   517→- Champ User.role ajouté avec default 'user'
+   518→- activation_code est UNIQUE sur physical_qr_codes
+   519→- dynamic_qr_code_id est UNIQUE nullable (un lien 1:1 vers le QR dynamique)
+   520→- design_config_json hérité du batch au niveau de chaque QR physique
+   521→- Index: status, batch_id, activationCode, activatedByUserId sur physical_qr_codes
+   522→- Types et constantes UI prêts pour les étapes suivantes
+   523→
+   524→---
+   525→Task ID: 2-5
+   526→Agent: Main Orchestrator
+   527→Task: ÉTAPES 2-5 — Module QR Codes Physiques & Activation complet
+   528→
+   529→Work Log:
+   530→- Installé qr-code-styling + jspdf
+   531→- Mis à jour auth.ts pour inclure le rôle dans le JWT token
+   532→- Créé utilitaire code-generator.ts (génération codes QR-XXXXXXXX uniques)
+   533→- Créé 7 API routes:
+   534→  - POST/GET /api/admin/qr-batches (génération + liste des lots)
+   535→  - GET/PATCH /api/admin/physical-qr-codes (recherche, pagination, marquer perdu/annulé)
+   536→  - GET /api/physical-qr/lookup (public, vérifie statut code)
+   537→  - POST /api/physical-qr/activate (activation avec création QR dynamique + contenu)
+   538→  - POST /api/physical-qr/deactivate (désactivation, remet inactive)
+   539→  - POST /api/physical-qr/batch-activate (activation multiple)
+   540→  - GET /api/physical-qr/my-codes (liste des QR physiques de l'utilisateur)
+   541→- Créé 6 composants frontend:
+   542→  - BatchGenerator.tsx: sélecteur quantité/couleur/points, aperçu QR, export PDF jspdf
+   543→  - PhysicalQrManager.tsx: recherche, filtres, pagination, actions perdu/annulé
+   544→  - ActivationOverlay.tsx: page activation via ?activate= param, 4 états (inactive/active/lost/not_found)
+   545→  - UserPhysicalQrPanel.tsx: activation manuelle, par lot, liste des codes activés
+   546→  - AdminPanel.tsx: wrapper full-screen avec tabs Générer/Gérer
+   547→  - UserPanel.tsx: wrapper full-screen pour l'utilisateur
+   548→- Créé panel-store.ts (zustand) pour état des panels admin/user
+   549→- Mis à jour Navbar: boutons Admin (superadmin), Mes QR (connecté), Connexion/Inscription
+   550→- Mis à jour page.tsx: ajout Suspense+ActivationOverlay, AdminPanel, UserPanel
+   551→- Lint passe, compilation OK, HTTP 200 en 458ms
+   552→
+   553→Stage Summary:
+   554→- 13 fichiers créés/modifiés
+   555→- 7 API routes sécurisées (superadmin check sur admin routes, session check sur user routes)
+   556→- Activation flow complet: scan ?activate=CODE → vérification → formulaire → création QR dynamique
+   557→- Export PDF avec mise en page planche d'autocollants via jspdf
+   558→- Gestion des 4 statuts: inactive, active, lost, cancelled
+   559→- Audit complet via activation_logs
+   560→
+   561→---
+   562→Task ID: physical-qr-landing-fix
+   563→Agent: Main Orchestrator
+   564→Task: Rendre le module QR Codes Physiques visible sur la landing page
+   565→
+   566→Work Log:
+   567→- Les fonctionnalités etaient cachees derriere des conditions
+   568→- Cree PhysicalQrSection.tsx avec section complete visible
+   569→- Integre dans page.tsx et Navbar.tsx
+   570→- Lint et compilation OK
+   571→
+   572→Stage Summary:
+   573→- Section QR Physiques visible pour tous les visiteurs
+   574→- 3 fichiers modifies/crees
+   575→

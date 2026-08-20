@@ -29,8 +29,12 @@ export const authOptions: NextAuthOptions = {
         token.id = user.id;
         token.email = user.email;
         token.name = user.name;
-        // V4: include role in JWT
         const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { role: true } });
+        token.role = dbUser?.role || 'user';
+      }
+      // Ensure role is always set on subsequent token refreshes
+      if (!token.role && token.id) {
+        const dbUser = await db.user.findUnique({ where: { id: token.id as string }, select: { role: true } });
         token.role = dbUser?.role || 'user';
       }
       return token;
