@@ -520,3 +520,40 @@ Stage Summary:
 - design_config_json hérité du batch au niveau de chaque QR physique
 - Index: status, batch_id, activationCode, activatedByUserId sur physical_qr_codes
 - Types et constantes UI prêts pour les étapes suivantes
+
+---
+Task ID: 2-5
+Agent: Main Orchestrator
+Task: ÉTAPES 2-5 — Module QR Codes Physiques & Activation complet
+
+Work Log:
+- Installé qr-code-styling + jspdf
+- Mis à jour auth.ts pour inclure le rôle dans le JWT token
+- Créé utilitaire code-generator.ts (génération codes QR-XXXXXXXX uniques)
+- Créé 7 API routes:
+  - POST/GET /api/admin/qr-batches (génération + liste des lots)
+  - GET/PATCH /api/admin/physical-qr-codes (recherche, pagination, marquer perdu/annulé)
+  - GET /api/physical-qr/lookup (public, vérifie statut code)
+  - POST /api/physical-qr/activate (activation avec création QR dynamique + contenu)
+  - POST /api/physical-qr/deactivate (désactivation, remet inactive)
+  - POST /api/physical-qr/batch-activate (activation multiple)
+  - GET /api/physical-qr/my-codes (liste des QR physiques de l'utilisateur)
+- Créé 6 composants frontend:
+  - BatchGenerator.tsx: sélecteur quantité/couleur/points, aperçu QR, export PDF jspdf
+  - PhysicalQrManager.tsx: recherche, filtres, pagination, actions perdu/annulé
+  - ActivationOverlay.tsx: page activation via ?activate= param, 4 états (inactive/active/lost/not_found)
+  - UserPhysicalQrPanel.tsx: activation manuelle, par lot, liste des codes activés
+  - AdminPanel.tsx: wrapper full-screen avec tabs Générer/Gérer
+  - UserPanel.tsx: wrapper full-screen pour l'utilisateur
+- Créé panel-store.ts (zustand) pour état des panels admin/user
+- Mis à jour Navbar: boutons Admin (superadmin), Mes QR (connecté), Connexion/Inscription
+- Mis à jour page.tsx: ajout Suspense+ActivationOverlay, AdminPanel, UserPanel
+- Lint passe, compilation OK, HTTP 200 en 458ms
+
+Stage Summary:
+- 13 fichiers créés/modifiés
+- 7 API routes sécurisées (superadmin check sur admin routes, session check sur user routes)
+- Activation flow complet: scan ?activate=CODE → vérification → formulaire → création QR dynamique
+- Export PDF avec mise en page planche d'autocollants via jspdf
+- Gestion des 4 statuts: inactive, active, lost, cancelled
+- Audit complet via activation_logs
