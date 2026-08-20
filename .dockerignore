@@ -1,0 +1,55 @@
+# Dépendances
+node_modules
+.pnp
+.pnp.js
+
+# Build
+.next
+out
+
+# DB locale (ne pas inclure la DB dev)
+db/*.db
+db/*.db-journal
+db/*.db-wal
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git
+.gitignore
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Logs
+dev.log
+server.log
+*.log
+npm-debug.log*
+
+# Coolify
+tool-results/
+mini-services/
+
+# Misc
+README.md
+worklog.md
+.agent-browser
+tmp/
+*.tmp

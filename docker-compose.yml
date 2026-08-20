@@ -1,0 +1,38 @@
+# ═══════════════════════════════════════════════════════════════════
+# QR DOMOTIK — Docker Compose pour Coolify
+# ═══════════════════════════════════════════════════════════════════
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: qrdomotik-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=file:/app/data/qrdomotik.db
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - NEXTAUTH_URL=${NEXTAUTH_URL}
+      - PORT=3000
+    volumes:
+      # Persiste la DB SQLite entre les redémarrages
+      - qrdomotik-data:/app/data
+    networks:
+      - coolify
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+volumes:
+  qrdomotik-data:
+    driver: local
+
+networks:
+  coolify:
+    external: true
