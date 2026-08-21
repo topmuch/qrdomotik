@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Wifi, Eye, EyeOff, Copy, Check } from 'lucide-react';
+import { Wifi, Eye, EyeOff, Copy, Check, Signal } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -26,9 +26,11 @@ export function WifiModule({ content, slug }: WifiModuleProps) {
   const ssid = content?.ssid || 'Réseau inconnu';
   const password = content?.password || '';
   const security = content?.security || 'WPA2';
+  const hiddenNetwork = content?.hiddenNetwork || false;
+  const isOpen = security === 'OPEN';
 
   const handleCopy = async () => {
-    if (!password) return;
+    if (!password || isOpen) return;
     try {
       await navigator.clipboard.writeText(password);
       setCopied(true);
@@ -36,6 +38,18 @@ export function WifiModule({ content, slug }: WifiModuleProps) {
     } catch {
       // fallback silencieux
     }
+  };
+
+  const handleConnect = () => {
+    const wifiString = `WIFI:S:${encodeURIComponent(ssid)};T:${isOpen ? 'nopass' : security};P:${encodeURIComponent(password)};H:${hiddenNetwork ? 'true' : 'false'};;`;
+
+    fetch(`/api/r/${slug}/log`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ actionType: 'wifi_connected' }),
+    });
+
+    window.location.href = wifiString;
   };
 
   return (
@@ -58,35 +72,49 @@ export function WifiModule({ content, slug }: WifiModuleProps) {
             </p>
           </div>
 
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-1">
-              Mot de passe
-            </p>
-            <div className="flex items-center gap-2">
-              <div className="flex-1 rounded-md border border-input bg-muted/50 px-3 py-2 font-mono text-lg tracking-widest text-foreground">
-                {password ? (showPassword ? password : '•'.repeat(password.length)) : '—'}
+          {!isOpen && (
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-1">
+                Mot de passe
+              </p>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 rounded-md border border-input bg-muted/50 px-3 py-2 font-mono text-lg tracking-widest text-foreground">
+                  {password ? (showPassword ? password : '•'.repeat(password.length)) : '—'}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                  className="shrink-0 text-emerald-600 hover:text-emerald-700 dark:text-emerald-400"
+                >
+                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </Button>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setShowPassword(!showPassword)}
-                aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
-                className="shrink-0 text-emerald-600 hover:text-emerald-700 dark:text-emerald-400"
-              >
-                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-              </Button>
             </div>
-          </div>
+          )}
+
+          {isOpen && (
+            <div className="flex items-center justify-center py-2">
+              <Badge
+                variant="outline"
+                className="border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 px-4 py-1.5 text-sm"
+              >
+                <Signal className="h-3.5 w-3.5 mr-1.5" />
+                Réseau ouvert
+              </Badge>
+            </div>
+          )}
 
           <div className="flex items-center justify-between">
             <Badge
               variant="outline"
               className="border-emerald-300 text-emerald-700 dark:border-emerald-700 dark:text-emerald-300"
             >
-              {security}
+              {security}{hiddenNetwork ? ' · Caché' : ''}
             </Badge>
 
-            {password && (
+            {!isOpen && password && (
               <Button
                 variant="outline"
                 size="sm"
@@ -107,6 +135,15 @@ export function WifiModule({ content, slug }: WifiModuleProps) {
               </Button>
             )}
           </div>
+
+          <Button
+            size="lg"
+            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+            onClick={handleConnect}
+          >
+            <Wifi className="mr-2 h-5 w-5" />
+            Se connecter au Wi-Fi
+          </Button>
         </CardContent>
       </Card>
     </div>

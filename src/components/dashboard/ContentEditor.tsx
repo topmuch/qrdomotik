@@ -21,6 +21,8 @@ interface ContentEditorProps {
 // WIFI EDITOR
 // ═══════════════════════════════════════════════════════════════
 function WifiEditor({ content, onChange }: { content: any; onChange: (c: any) => void }) {
+  const security = content.security || 'WPA2';
+  const isOpen = security === 'OPEN';
   return (
     <div className="space-y-4">
       <div className="space-y-2">
@@ -28,14 +30,10 @@ function WifiEditor({ content, onChange }: { content: any; onChange: (c: any) =>
         <Input placeholder="MonWiFi" value={content.ssid || ''} onChange={(e) => onChange({ ...content, ssid: e.target.value })} />
       </div>
       <div className="space-y-2">
-        <Label>Mot de passe</Label>
-        <Input type="text" placeholder="••••••••" value={content.password || ''} onChange={(e) => onChange({ ...content, password: e.target.value })} />
-      </div>
-      <div className="space-y-2">
         <Label>Sécurité</Label>
         <select
-          value={content.security || 'WPA2'}
-          onChange={(e) => onChange({ ...content, security: e.target.value })}
+          value={security}
+          onChange={(e) => onChange({ ...content, security: e.target.value, password: e.target.value === 'OPEN' ? '' : content.password })}
           className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
         >
           {['WPA', 'WPA2', 'WPA3', 'WEP', 'OPEN'].map((s) => (
@@ -43,6 +41,16 @@ function WifiEditor({ content, onChange }: { content: any; onChange: (c: any) =>
           ))}
         </select>
       </div>
+      {!isOpen && (
+        <div className="space-y-2">
+          <Label>Mot de passe</Label>
+          <Input type="text" placeholder="••••••••" value={content.password || ''} onChange={(e) => onChange({ ...content, password: e.target.value })} />
+        </div>
+      )}
+      <label className="flex items-center gap-2 cursor-pointer">
+        <Checkbox checked={content.hiddenNetwork === true} onCheckedChange={(v) => onChange({ ...content, hiddenNetwork: !!v })} />
+        <span className="text-sm">Réseau masqué (caché)</span>
+      </label>
     </div>
   );
 }
@@ -80,14 +88,15 @@ function InfoEditor({ content, onChange }: { content: any; onChange: (c: any) =>
         <Input placeholder="Guide de la maison" value={content.title || ''} onChange={(e) => onChange({ ...content, title: e.target.value })} />
       </div>
       <div className="space-y-2">
-        <Label>Contenu</Label>
+        <Label>Contenu <span className="text-muted-foreground font-normal">(Markdown supporté)</span></Label>
         <Textarea
-          placeholder="Consignes, astuces, informations utiles..."
-          rows={6}
+          placeholder="Consignes, astuces, informations utiles...\nUtilisez **gras**, *italique*, - listes, etc."
+          rows={10}
           value={content.body || ''}
           onChange={(e) => onChange({ ...content, body: e.target.value })}
+          className="font-mono text-sm"
         />
-        <p className="text-xs text-muted-foreground">Saisissez librement. Le texte sera affiché tel quel.</p>
+        <p className="text-xs text-muted-foreground">Markdown : **gras**, *italique*, # titres, - listes, [liens](url), etc.</p>
       </div>
     </div>
   );
@@ -324,6 +333,314 @@ function ChoresEditor({ content, onChange }: { content: any; onChange: (c: any) 
 }
 
 // ═══════════════════════════════════════════════════════════════
+// DAILY MENU EDITOR
+// ═══════════════════════════════════════════════════════════════
+const MEAL_OPTIONS = [
+  { value: 'petit-dejeuner', label: 'Petit-déjeuner', icon: '☕' },
+  { value: 'dejeuner', label: 'Déjeuner', icon: '🍽️' },
+  { value: 'gouter', label: 'Goûter', icon: '🍪' },
+  { value: 'diner', label: 'Dîner', icon: '🌙' },
+];
+
+function DailyMenuEditor({ content, onChange }: { content: any; onChange: (c: any) => void }) {
+  const meals: Array<{ id: string; meal: string; dish: string; notes?: string }> = Array.isArray(content.meals) ? content.meals : [];
+
+  const addMeal = () => {
+    const id = crypto.randomUUID().slice(0, 8);
+    const existing = meals.map((m) => m.meal);
+    const next = MEAL_OPTIONS.find((m) => !existing.includes(m.value)) || MEAL_OPTIONS[0];
+    onChange({ ...content, meals: [...meals, { id, meal: next.value, dish: '', notes: '' }] });
+  };
+
+  const updateMeal = (idx: number, field: string, value: string) => {
+    const updated = [...meals];
+    updated[idx] = { ...updated[idx], [field]: value };
+    onChange({ ...content, meals: updated });
+  };
+
+  const removeMeal = (idx: number) => {
+    onChange({ ...content, meals: meals.filter((_, i) => i !== idx) });
+  };
+
+  return (
+    <div className="space-y-4">
+      {meals.map((meal, idx) => {
+        const mealOpt = MEAL_OPTIONS.find((m) => m.value === meal.meal);
+        return (
+          <div key={meal.id || idx} className="p-3 rounded-lg border border-amber-200 bg-amber-50/50 space-y-2">
+            <div className="flex justify-between items-center">
+              <Badge variant="secondary" className="bg-amber-100 text-amber-700 text-xs">
+                {mealOpt?.icon} {mealOpt?.label || meal.meal}
+              </Badge>
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeMeal(idx)}>
+                <Trash2 className="w-3 h-3" />
+              </Button>
+            </div>
+            <select
+              value={meal.meal}
+              onChange={(e) => updateMeal(idx, 'meal', e.target.value)}
+              className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm"
+            >
+              {MEAL_OPTIONS.map((m) => <option key={m.value} value={m.value}>{m.icon} {m.label}</option>)}
+            </select>
+            <Input placeholder="Plat" value={meal.dish} onChange={(e) => updateMeal(idx, 'dish', e.target.value)} className="h-9" />
+            <Input placeholder="Notes (optionnel)" value={meal.notes || ''} onChange={(e) => updateMeal(idx, 'notes', e.target.value)} className="h-9" />
+          </div>
+        );
+      })}
+      <Button variant="outline" size="sm" onClick={addMeal}><Plus className="w-4 h-4 mr-1.5" /> Ajouter un repas</Button>
+      <p className="text-xs text-muted-foreground">Le menu du jour sera affiché avec la date actuelle.</p>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TODO LIST EDITOR
+// ═══════════════════════════════════════════════════════════════
+function TodoListEditor({ content, onChange }: { content: any; onChange: (c: any) => void }) {
+  const items: Array<{ id: string; text: string; checked: boolean }> = Array.isArray(content.items) ? content.items : [];
+  const [newItem, setNewItem] = useState('');
+
+  const addItem = () => {
+    if (!newItem.trim()) return;
+    const id = crypto.randomUUID().slice(0, 8);
+    onChange({ ...content, title: content.title || '', items: [...items, { id, text: newItem.trim(), checked: false }] });
+    setNewItem('');
+  };
+
+  const removeItem = (id: string) => {
+    onChange({ ...content, items: items.filter((i) => i.id !== id) });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label>Titre de la liste</Label>
+        <Input placeholder="To-Do List" value={content.title || ''} onChange={(e) => onChange({ ...content, title: e.target.value })} />
+      </div>
+      <div className="flex gap-2">
+        <Input placeholder="Ajouter une tâche..." value={newItem} onChange={(e) => setNewItem(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addItem())} className="flex-1" />
+        <Button size="sm" onClick={addItem} disabled={!newItem.trim()}><Plus className="w-4 h-4" /></Button>
+      </div>
+      {items.length === 0 ? (
+        <p className="text-sm text-muted-foreground text-center py-4">Aucune tâche</p>
+      ) : (
+        <div className="space-y-2 max-h-60 overflow-y-auto">
+          {items.map((item) => (
+            <div key={item.id} className="flex items-center gap-2 p-2 rounded-lg bg-cyan-50 border border-cyan-100">
+              <span className="flex-1 text-sm">{item.text}</span>
+              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removeItem(item.id)}>
+                <Trash2 className="w-3.5 h-3.5" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+      <p className="text-xs text-muted-foreground">Les visiteurs pourront cocher les tâches en scannant le QR.</p>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// GUESTBOOK EDITOR
+// ═══════════════════════════════════════════════════════════════
+function GuestbookEditor({ content, onChange }: { content: any; onChange: (c: any) => void }) {
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label>Titre (optionnel)</Label>
+        <Input placeholder="Livre d'or" value={content.title || ''} onChange={(e) => onChange({ ...content, title: e.target.value })} />
+      </div>
+      <div className="space-y-2">
+        <Label>Sous-titre (optionnel)</Label>
+        <Input placeholder="Laissez un message !" value={content.subtitle || ''} onChange={(e) => onChange({ ...content, subtitle: e.target.value })} />
+      </div>
+      <label className="flex items-center gap-2 cursor-pointer">
+        <Checkbox checked={content.requireName !== false} onCheckedChange={(v) => onChange({ ...content, requireName: !!v })} />
+        <span className="text-sm">Demander le nom du visiteur</span>
+      </label>
+      <div className="rounded-lg bg-rose-50 border border-rose-200 p-4">
+        <p className="text-sm text-rose-800 leading-relaxed">
+          Les messages des visiteurs sont stockés automatiquement. Vous pouvez les modérer depuis le <strong>Journal d&apos;activité</strong>.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ENERGY COUNTER EDITOR
+// ═══════════════════════════════════════════════════════════════
+function EnergyCounterEditor({ content, onChange }: { content: any; onChange: (c: any) => void }) {
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label>Type de compteur</Label>
+        <select value={content.type || 'electricity'} onChange={(e) => onChange({ ...content, type: e.target.value })} className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm">
+          <option value="electricity">Électricité</option>
+          <option value="water">Eau</option>
+          <option value="gas">Gaz</option>
+        </select>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-2">
+          <Label>Nom du compteur</Label>
+          <Input placeholder="Compteur principal" value={content.meterId || ''} onChange={(e) => onChange({ ...content, meterId: e.target.value })} />
+        </div>
+        <div className="space-y-2">
+          <Label>Fournisseur</Label>
+          <Input placeholder="EDF, Engie..." value={content.provider || ''} onChange={(e) => onChange({ ...content, provider: e.target.value })} />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-2">
+          <Label>Unité</Label>
+          <select value={content.unit || 'kWh'} onChange={(e) => onChange({ ...content, unit: e.target.value })} className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm">
+            <option value="kWh">kWh</option>
+            <option value="m³">m³</option>
+            <option value="L">Litres</option>
+          </select>
+        </div>
+        <div className="space-y-2">
+          <Label>Relevé actuel</Label>
+          <Input type="number" step="0.01" placeholder="0" value={content.currentReading || ''} onChange={(e) => onChange({ ...content, currentReading: parseFloat(e.target.value) || 0 })} />
+        </div>
+      </div>
+      <div className="space-y-2">
+        <Label>Notes (optionnel)</Label>
+        <Input placeholder="Compteur bleu, tarif heure creuse..." value={content.notes || ''} onChange={(e) => onChange({ ...content, notes: e.target.value })} />
+      </div>
+      <div className="rounded-lg bg-teal-50 border border-teal-200 p-4">
+        <p className="text-sm text-teal-800 leading-relaxed">
+          Les visiteurs pourront saisir de nouveaux relevés. L&apos;historique sera conservé.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// KEYS TRACKER EDITOR
+// ═══════════════════════════════════════════════════════════════
+function KeysTrackerEditor({ content, onChange }: { content: any; onChange: (c: any) => void }) {
+  const items: Array<{ id: string; name: string; description?: string; lastLocation?: string; isBorrowed: boolean; borrowedBy?: string }> = Array.isArray(content.items) ? content.items : [];
+  const [newName, setNewName] = useState('');
+
+  const addItem = () => {
+    if (!newName.trim()) return;
+    const id = crypto.randomUUID().slice(0, 8);
+    onChange({ ...content, items: [...items, { id, name: newName.trim(), description: '', lastLocation: '', isBorrowed: false, borrowedBy: '' }] });
+    setNewName('');
+  };
+
+  const updateItem = (idx: number, field: string, value: string) => {
+    const updated = [...items];
+    updated[idx] = { ...updated[idx], [field]: value };
+    onChange({ ...content, items: updated });
+  };
+
+  const removeItem = (idx: number) => {
+    onChange({ ...content, items: items.filter((_, i) => i !== idx) });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-2">
+        <Input placeholder="Ajouter un objet (clés, badge...)" value={newName} onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addItem())} className="flex-1" />
+        <Button size="sm" onClick={addItem} disabled={!newName.trim()}><Plus className="w-4 h-4" /></Button>
+      </div>
+      {items.length === 0 ? (
+        <p className="text-sm text-muted-foreground text-center py-4">Aucun objet suivi</p>
+      ) : (
+        <div className="space-y-2 max-h-72 overflow-y-auto">
+          {items.map((item, idx) => (
+            <div key={item.id || idx} className="p-3 rounded-lg border border-amber-200 bg-amber-50/50 space-y-2">
+              <div className="flex items-center gap-2">
+                <Input placeholder="Nom" value={item.name} onChange={(e) => updateItem(idx, 'name', e.target.value)} className="h-8 flex-1 text-sm" />
+                <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => removeItem(idx)}>
+                  <Trash2 className="w-3 h-3" />
+                </Button>
+              </div>
+              <Input placeholder="Description (optionnel)" value={item.description || ''} onChange={(e) => updateItem(idx, 'description', e.target.value)} className="h-8 text-sm" />
+              <Input placeholder="Dernier emplacement" value={item.lastLocation || ''} onChange={(e) => updateItem(idx, 'lastLocation', e.target.value)} className="h-8 text-sm" />
+            </div>
+          ))}
+        </div>
+      )}
+      <p className="text-xs text-muted-foreground">Les visiteurs pourront marquer les objets comme empruntés/rendus.</p>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DEEP CLEANING EDITOR
+// ═══════════════════════════════════════════════════════════════
+const FREQUENCY_OPTIONS = [
+  { value: 'daily', label: 'Quotidien' },
+  { value: 'weekly', label: 'Hebdomadaire' },
+  { value: 'biweekly', label: 'Bi-hebdomadaire' },
+  { value: 'monthly', label: 'Mensuel' },
+  { value: 'quarterly', label: 'Trimestriel' },
+];
+
+function DeepCleaningEditor({ content, onChange }: { content: any; onChange: (c: any) => void }) {
+  const items: Array<{ id: string; text: string; frequency: string; lastDone?: string; checked: boolean }> = Array.isArray(content.items) ? content.items : [];
+  const [newTask, setNewTask] = useState('');
+
+  const addItem = () => {
+    if (!newTask.trim()) return;
+    const id = crypto.randomUUID().slice(0, 8);
+    onChange({ ...content, title: content.title || 'Ménage Profond', items: [...items, { id, text: newTask.trim(), frequency: 'weekly', lastDone: undefined, checked: false }] });
+    setNewTask('');
+  };
+
+  const updateItem = (idx: number, field: string, value: any) => {
+    const updated = [...items];
+    updated[idx] = { ...updated[idx], [field]: value };
+    onChange({ ...content, items: updated });
+  };
+
+  const removeItem = (idx: number) => {
+    onChange({ ...content, items: items.filter((_, i) => i !== idx) });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label>Titre</Label>
+        <Input placeholder="Ménage Profond" value={content.title || ''} onChange={(e) => onChange({ ...content, title: e.target.value })} />
+      </div>
+      <div className="flex gap-2">
+        <Input placeholder="Ajouter une tâche..." value={newTask} onChange={(e) => setNewTask(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addItem())} className="flex-1" />
+        <Button size="sm" onClick={addItem} disabled={!newTask.trim()}><Plus className="w-4 h-4" /></Button>
+      </div>
+      {items.length === 0 ? (
+        <p className="text-sm text-muted-foreground text-center py-4">Aucune tâche</p>
+      ) : (
+        <div className="space-y-2 max-h-72 overflow-y-auto">
+          {items.map((item, idx) => (
+            <div key={item.id || idx} className="p-3 rounded-lg border border-purple-200 bg-purple-50/50 space-y-2">
+              <div className="flex items-center gap-2">
+                <Input placeholder="Tâche" value={item.text} onChange={(e) => updateItem(idx, 'text', e.target.value)} className="h-8 flex-1 text-sm" />
+                <select value={item.frequency} onChange={(e) => updateItem(idx, 'frequency', e.target.value)} className="h-8 rounded-md border border-input bg-background px-2 py-1 text-xs">
+                  {FREQUENCY_OPTIONS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
+                </select>
+                <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => removeItem(idx)}>
+                  <Trash2 className="w-3 h-3" />
+                </Button>
+              </div>
+              {item.lastDone && (
+                <p className="text-xs text-muted-foreground">Dernière fois : {new Date(item.lastDone).toLocaleDateString('fr-FR')}</p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
 // STOCK DLC EDITOR (simplified — product management is in StockPanel)
 // ═══════════════════════════════════════════════════════════════
 function StockDlcEditor({ content, onChange }: { content: any; onChange: (c: any) => void }) {
@@ -380,6 +697,12 @@ export function ContentEditor({ qrId, type, initialContent, onSave }: ContentEdi
       case 'medication': return <MedicationEditor content={content} onChange={handleChange} />;
       case 'chores': return <ChoresEditor content={content} onChange={handleChange} />;
       case 'stock_dlc': return <StockDlcEditor content={content} onChange={handleChange} />;
+      case 'daily_menu': return <DailyMenuEditor content={content} onChange={handleChange} />;
+      case 'todo_list': return <TodoListEditor content={content} onChange={handleChange} />;
+      case 'guestbook': return <GuestbookEditor content={content} onChange={handleChange} />;
+      case 'energy_counter': return <EnergyCounterEditor content={content} onChange={handleChange} />;
+      case 'keys_tracker': return <KeysTrackerEditor content={content} onChange={handleChange} />;
+      case 'deep_cleaning': return <DeepCleaningEditor content={content} onChange={handleChange} />;
       default: return <p className="text-sm text-muted-foreground">Type non supporté</p>;
     }
   };

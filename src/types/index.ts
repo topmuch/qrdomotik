@@ -20,6 +20,8 @@ export type QrType =
   | 'energy_counter'
   | 'keys_tracker'
   | 'daily_menu'
+  | 'todo_list'
+  | 'deep_cleaning'
   // V3
   | 'emergency_service'
   | 'neighborhood';
@@ -38,6 +40,8 @@ export const QR_TYPE_LABELS: Record<QrType, string> = {
   energy_counter: 'Compteur Énergie',
   keys_tracker: 'Clés & Objets',
   daily_menu: 'Menu du Jour',
+  todo_list: 'To-Do List',
+  deep_cleaning: 'Ménage Profond',
   emergency_service: 'Urgence Artisan',
   neighborhood: 'Mon Quartier',
 };
@@ -56,6 +60,8 @@ export const QR_TYPE_ICONS: Record<QrType, string> = {
   energy_counter: 'Zap',
   keys_tracker: 'KeyRound',
   daily_menu: 'UtensilsCrossed',
+  todo_list: 'CheckSquare',
+  deep_cleaning: 'Sparkles',
   emergency_service: 'Siren',
   neighborhood: 'MapPin',
 };
@@ -74,6 +80,8 @@ export const QR_TYPE_DESCRIPTIONS: Record<QrType, string> = {
   energy_counter: 'Suivez votre consommation énergétique',
   keys_tracker: 'Retrouvez vos clés et objets importants',
   daily_menu: 'Affichez le menu du jour à la cuisine',
+  todo_list: 'Liste de tâches avec cases à cocher',
+  deep_cleaning: 'Tâches ménagères avec fréquence',
   emergency_service: 'QR d\'urgence : appelez un artisan en 1 clic',
   neighborhood: 'Carte des commerces et promos du quartier',
 };
@@ -87,7 +95,7 @@ export const QR_TYPE_CATEGORIES: Record<string, { label: string; types: QrType[]
   },
   organisation: {
     label: 'Organisation',
-    types: ['shopping_list', 'daily_menu', 'medication', 'keys_tracker'],
+    types: ['shopping_list', 'daily_menu', 'todo_list', 'medication', 'keys_tracker'],
   },
   securite: {
     label: 'Sécurité & Accueil',
@@ -95,7 +103,7 @@ export const QR_TYPE_CATEGORIES: Record<string, { label: string; types: QrType[]
   },
   famille: {
     label: 'Famille',
-    types: ['chores', 'stock_dlc', 'energy_counter'],
+    types: ['chores', 'stock_dlc', 'energy_counter', 'deep_cleaning'],
   },
   // V3
   quartier: {
@@ -268,10 +276,15 @@ export type ActivityActionType =
   | 'item_added_to_list'
   // Livre d'or
   | 'guestbook_entry'
+  | 'guestbook_entry_added'
   // Membres
   | 'member_invited'
   | 'member_joined'
-  | 'member_role_changed';
+  | 'member_role_changed'
+  // V2 modules
+  | 'energy_reading_added'
+  | 'key_borrowed'
+  | 'key_returned';
 
 export const ACTION_TYPE_LABELS: Record<ActivityActionType, string> = {
   ring: 'Sonnette',
@@ -294,9 +307,13 @@ export const ACTION_TYPE_LABELS: Record<ActivityActionType, string> = {
   dlc_warning: 'Alerte péremption',
   item_added_to_list: 'Ajouté à la liste de courses',
   guestbook_entry: 'Entrée livre d\'or',
+  guestbook_entry_added: 'Nouveau message livre d\'or',
   member_invited: 'Membre invité',
   member_joined: 'Membre rejoint',
   member_role_changed: 'Rôle modifié',
+  energy_reading_added: 'Relevé énergie ajouté',
+  key_borrowed: 'Clé empruntée',
+  key_returned: 'Clé rendue',
 };
 
 export const ACTION_TYPE_ICONS: Record<ActivityActionType, string> = {
@@ -320,9 +337,13 @@ export const ACTION_TYPE_ICONS: Record<ActivityActionType, string> = {
   dlc_warning: 'Clock',
   item_added_to_list: 'ShoppingCart',
   guestbook_entry: 'BookOpen',
+  guestbook_entry_added: 'MessageSquare',
   member_invited: 'UserPlus',
   member_joined: 'UserCheck',
   member_role_changed: 'Shield',
+  energy_reading_added: 'Zap',
+  key_borrowed: 'ArrowRightLeft',
+  key_returned: 'KeyRound',
 };
 
 // ─── Chore Types ──────────────────────────────────────────────────────────
@@ -472,12 +493,20 @@ export interface GuestbookContent {
   requireName: boolean;
 }
 
+export interface EnergyReading {
+  id: string;
+  value: number;
+  date: string;
+  createdAt: string;
+}
+
 export interface EnergyCounterContent {
   meterId?: string;
   provider?: string;
   currentReading?: number;
   unit?: string;
   notes?: string;
+  readings?: EnergyReading[];
 }
 
 export interface KeysTrackerEntry {
@@ -488,8 +517,18 @@ export interface KeysTrackerEntry {
   lastSeenAt?: string;
 }
 
+export interface KeysTrackerItem {
+  id: string;
+  name: string;
+  description?: string;
+  lastLocation?: string;
+  lastSeenAt?: string;
+  borrowedBy?: string;
+  isBorrowed: boolean;
+}
+
 export interface KeysTrackerContent {
-  items: KeysTrackerEntry[];
+  items: KeysTrackerItem[];
 }
 
 export interface DailyMenuEntry {
@@ -504,6 +543,31 @@ export interface DailyMenuContent {
   meals: DailyMenuEntry[];
 }
 
+export interface TodoListContent {
+  title?: string;
+  items: Array<{ id: string; text: string; checked: boolean }>;
+}
+
+export interface GuestbookEntryData {
+  id: string;
+  guestName: string;
+  message: string;
+  createdAt: string;
+}
+
+export interface DeepCleaningItem {
+  id: string;
+  text: string;
+  frequency: 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'quarterly';
+  lastDone?: string;
+  checked: boolean;
+}
+
+export interface DeepCleaningContent {
+  title?: string;
+  items: DeepCleaningItem[];
+}
+
 export type QrContentUnion =
   | WifiContent
   | LinkContent
@@ -516,7 +580,9 @@ export type QrContentUnion =
   | GuestbookContent
   | EnergyCounterContent
   | KeysTrackerContent
-  | DailyMenuContent;
+  | DailyMenuContent
+  | TodoListContent
+  | DeepCleaningContent;
 
 // ─── API Response Types ───────────────────────────────────────────────────
 

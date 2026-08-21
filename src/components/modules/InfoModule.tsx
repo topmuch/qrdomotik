@@ -3,6 +3,8 @@
 import { useEffect } from 'react';
 import { BookOpen } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface InfoModuleProps {
   content: any;
@@ -36,8 +38,10 @@ export function InfoModule({ content, slug }: InfoModuleProps) {
         </CardHeader>
 
         <CardContent>
- <div className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
-            {body}
+          <div className="prose prose-sm max-w-none text-muted-foreground">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {body}
+            </ReactMarkdown>
           </div>
         </CardContent>
       </Card>

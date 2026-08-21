@@ -14,6 +14,12 @@ import { DoormanModule } from '@/components/modules/DoormanModule';
 import { MedicationModule } from '@/components/modules/MedicationModule';
 import { ChoresModule } from '@/components/modules/ChoresModule';
 import { StockDlcModule } from '@/components/modules/StockDlcModule';
+import { DailyMenuModule } from '@/components/modules/DailyMenuModule';
+import { TodoListModule } from '@/components/modules/TodoListModule';
+import { GuestbookModule } from '@/components/modules/GuestbookModule';
+import { EnergyCounterModule } from '@/components/modules/EnergyCounterModule';
+import { KeysTrackerModule } from '@/components/modules/KeysTrackerModule';
+import { DeepCleaningModule } from '@/components/modules/DeepCleaningModule';
 import type { QrType } from '@/types';
 import { QR_TYPE_LABELS } from '@/types';
 
@@ -76,6 +82,18 @@ function ModuleRouter({
       return <ChoresModule content={content} slug={slug} />;
     case 'stock_dlc':
       return <StockDlcModule content={content} slug={slug} />;
+    case 'daily_menu':
+      return <DailyMenuModule content={content} slug={slug} />;
+    case 'todo_list':
+      return <TodoListModule content={content} slug={slug} />;
+    case 'guestbook':
+      return <GuestbookModule content={content} slug={slug} />;
+    case 'energy_counter':
+      return <EnergyCounterModule content={content} slug={slug} />;
+    case 'keys_tracker':
+      return <KeysTrackerModule content={content} slug={slug} />;
+    case 'deep_cleaning':
+      return <DeepCleaningModule content={content} slug={slug} />;
     default:
       return (
         <div className="text-center text-muted-foreground py-8">
