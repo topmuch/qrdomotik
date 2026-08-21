@@ -1,0 +1,958 @@
+     1→// ═══════════════════════════════════════════════════════════════════
+     2→// QR DOMOTIK V2 — Types TypeScript partagés
+     3→// ═══════════════════════════════════════════════════════════════════
+     4→
+     5→// ─── QR Code Types ─────────────────────────────────────────────────────────
+     6→
+     7→export type QrType =
+     8→  // V1
+     9→  | 'wifi'
+    10→  | 'link'
+    11→  | 'info'
+    12→  | 'postit'
+    13→  | 'shopping_list'
+    14→  | 'doorman'
+    15→  | 'medication'
+    16→  | 'chores'
+    17→  | 'stock_dlc'
+    18→  // V2
+    19→  | 'guestbook'
+    20→  | 'energy_counter'
+    21→  | 'keys_tracker'
+    22→  | 'daily_menu'
+    23→  | 'todo_list'
+    24→  | 'deep_cleaning'
+    25→  // V3
+    26→  | 'emergency_service'
+    27→  | 'neighborhood';
+    28→
+    29→export const QR_TYPE_LABELS: Record<QrType, string> = {
+    30→  wifi: 'Wi-Fi',
+    31→  link: 'Lien Externe',
+    32→  info: 'Guide Maison',
+    33→  postit: 'Post-it Numérique',
+    34→  shopping_list: 'Liste de Courses',
+    35→  doorman: 'Portier Virtuel',
+    36→  medication: 'Médicaments',
+    37→  chores: 'Corvées Enfants',
+    38→  stock_dlc: 'Stock & DLC',
+    39→  guestbook: "Livre d'Or",
+    40→  energy_counter: 'Compteur Énergie',
+    41→  keys_tracker: 'Clés & Objets',
+    42→  daily_menu: 'Menu du Jour',
+    43→  todo_list: 'To-Do List',
+    44→  deep_cleaning: 'Ménage Profond',
+    45→  emergency_service: 'Urgence Artisan',
+    46→  neighborhood: 'Mon Quartier',
+    47→};
+    48→
+    49→export const QR_TYPE_ICONS: Record<QrType, string> = {
+    50→  wifi: 'Wifi',
+    51→  link: 'ExternalLink',
+    52→  info: 'BookOpen',
+    53→  postit: 'StickyNote',
+    54→  shopping_list: 'ShoppingCart',
+    55→  doorman: 'DoorOpen',
+    56→  medication: 'Pill',
+    57→  chores: 'Star',
+    58→  stock_dlc: 'Package',
+    59→  guestbook: 'MessageSquare',
+    60→  energy_counter: 'Zap',
+    61→  keys_tracker: 'KeyRound',
+    62→  daily_menu: 'UtensilsCrossed',
+    63→  todo_list: 'CheckSquare',
+    64→  deep_cleaning: 'Sparkles',
+    65→  emergency_service: 'Siren',
+    66→  neighborhood: 'MapPin',
+    67→};
+    68→
+    69→export const QR_TYPE_DESCRIPTIONS: Record<QrType, string> = {
+    70→  wifi: 'Partagez vos identifiants Wi-Fi sans les dicter',
+    71→  link: 'Redirigez vers une playlist, un manuel PDF, un site...',
+    72→  info: "Guide d'utilisation de la maison, consignes, astuces",
+    73→  postit: 'Message court modifiable en temps réel',
+    74→  shopping_list: 'Liste collaborative avec cases à cocher',
+    75→  doorman: 'Gérez les livraisons et visites à distance',
+    76→  medication: 'Suivi quotidien de prise de médicaments',
+    77→  chores: 'Tâches gamifiées avec système de points',
+    78→  stock_dlc: 'Suivi des stocks et alertes de péremption',
+    79→  guestbook: 'Laissez un message aux propriétaires',
+    80→  energy_counter: 'Suivez votre consommation énergétique',
+    81→  keys_tracker: 'Retrouvez vos clés et objets importants',
+    82→  daily_menu: 'Affichez le menu du jour à la cuisine',
+    83→  todo_list: 'Liste de tâches avec cases à cocher',
+    84→  deep_cleaning: 'Tâches ménagères avec fréquence',
+    85→  emergency_service: 'QR d\'urgence : appelez un artisan en 1 clic',
+    86→  neighborhood: 'Carte des commerces et promos du quartier',
+    87→};
+    88→
+    89→// ─── QR Types par catégorie (pour l'UI) ────────────────────────────────────
+    90→
+    91→export const QR_TYPE_CATEGORIES: Record<string, { label: string; types: QrType[] }> = {
+    92→  communication: {
+    93→    label: 'Communication',
+    94→    types: ['wifi', 'link', 'info', 'postit', 'guestbook'],
+    95→  },
+    96→  organisation: {
+    97→    label: 'Organisation',
+    98→    types: ['shopping_list', 'daily_menu', 'todo_list', 'medication', 'keys_tracker'],
+    99→  },
+   100→  securite: {
+   101→    label: 'Sécurité & Accueil',
+   102→    types: ['doorman', 'emergency_service'],
+   103→  },
+   104→  famille: {
+   105→    label: 'Famille',
+   106→    types: ['chores', 'stock_dlc', 'energy_counter', 'deep_cleaning'],
+   107→  },
+   108→  // V3
+   109→  quartier: {
+   110→    label: 'Quartier & Services',
+   111→    types: ['neighborhood'],
+   112→  },
+   113→};
+   114→
+   115→// ─── Home Member Roles ────────────────────────────────────────────────────
+   116→
+   117→export type HomeMemberRole = 'owner' | 'admin' | 'member' | 'child';
+   118→
+   119→export const MEMBER_ROLE_LABELS: Record<HomeMemberRole, string> = {
+   120→  owner: 'Propriétaire',
+   121→  admin: 'Administrateur',
+   122→  member: 'Membre',
+   123→  child: 'Enfant',
+   124→};
+   125→
+   126→export const MEMBER_ROLE_COLORS: Record<HomeMemberRole, string> = {
+   127→  owner: 'bg-purple-100 text-purple-800',
+   128→  admin: 'bg-blue-100 text-blue-800',
+   129→  member: 'bg-gray-100 text-gray-800',
+   130→  child: 'bg-amber-100 text-amber-800',
+   131→};
+   132→
+   133→// Permissions par rôle
+   134→export const ROLE_PERMISSIONS: Record<HomeMemberRole, {
+   135→  canCreateQr: boolean;
+   136→  canEditQr: boolean;
+   137→  canDeleteQr: boolean;
+   138→  canInviteMembers: boolean;
+   139→  canManageMembers: boolean;
+   140→  canManageProducts: boolean;
+   141→  canManageChores: boolean;
+   142→  canValidateChores: boolean;
+   143→  canViewActivityLogs: boolean;
+   144→  canEditHomeSettings: boolean;
+   145→}> = {
+   146→  owner: {
+   147→    canCreateQr: true,
+   148→    canEditQr: true,
+   149→    canDeleteQr: true,
+   150→    canInviteMembers: true,
+   151→    canManageMembers: true,
+   152→    canManageProducts: true,
+   153→    canManageChores: true,
+   154→    canValidateChores: true,
+   155→    canViewActivityLogs: true,
+   156→    canEditHomeSettings: true,
+   157→  },
+   158→  admin: {
+   159→    canCreateQr: true,
+   160→    canEditQr: true,
+   161→    canDeleteQr: true,
+   162→    canInviteMembers: true,
+   163→    canManageMembers: false,
+   164→    canManageProducts: true,
+   165→    canManageChores: true,
+   166→    canValidateChores: true,
+   167→    canViewActivityLogs: true,
+   168→    canEditHomeSettings: false,
+   169→  },
+   170→  member: {
+   171→    canCreateQr: true,
+   172→    canEditQr: true,
+   173→    canDeleteQr: false,
+   174→    canInviteMembers: false,
+   175→    canManageMembers: false,
+   176→    canManageProducts: true,
+   177→    canManageChores: false,
+   178→    canValidateChores: false,
+   179→    canViewActivityLogs: true,
+   180→    canEditHomeSettings: false,
+   181→  },
+   182→  child: {
+   183→    canCreateQr: false,
+   184→    canEditQr: false,
+   185→    canDeleteQr: false,
+   186→    canInviteMembers: false,
+   187→    canManageMembers: false,
+   188→    canManageProducts: false,
+   189→    canManageChores: false,
+   190→    canValidateChores: false,
+   191→    canViewActivityLogs: false,
+   192→    canEditHomeSettings: false,
+   193→  },
+   194→};
+   195→
+   196→// ─── Product Categories ───────────────────────────────────────────────────
+   197→
+   198→export type ProductCategory =
+   199→  | 'laitier'
+   200→  | 'viande'
+   201→  | 'epicerie'
+   202→  | 'boisson'
+   203→  | 'fruit'
+   204→  | 'conserve'
+   205→  | 'surgelé'
+   206→  | 'autre';
+   207→
+   208→export const PRODUCT_CATEGORY_LABELS: Record<ProductCategory, string> = {
+   209→  laitier: 'Produits laitiers',
+   210→  viande: 'Viandes & Poissons',
+   211→  epicerie: 'Épicerie',
+   212→  boisson: 'Boissons',
+   213→  fruit: 'Fruits & Légumes',
+   214→  conserve: 'Conserves',
+   215→  surgelé: 'Surgelés',
+   216→  autre: 'Autre',
+   217→};
+   218→
+   219→export const PRODUCT_CATEGORY_ICONS: Record<ProductCategory, string> = {
+   220→  laitier: 'Milk',
+   221→  viande: 'Beef',
+   222→  epicerie: 'ShoppingBasket',
+   223→  boisson: 'Wine',
+   224→  fruit: 'Apple',
+   225→  conserve: 'Package',
+   226→  surgelé: 'Snowflake',
+   227→  autre: 'Box',
+   228→};
+   229→
+   230→// ─── Product Instance Status ──────────────────────────────────────────────
+   231→
+   232→export type ProductStatus = 'fresh' | 'warning' | 'critical' | 'expired' | 'consumed';
+   233→
+   234→export const PRODUCT_STATUS_LABELS: Record<ProductStatus, string> = {
+   235→  fresh: 'Frais',
+   236→  warning: 'Bientôt périmé',
+   237→  critical: 'Urgent',
+   238→  expired: 'Périmé',
+   239→  consumed: 'Consommé',
+   240→};
+   241→
+   242→export const PRODUCT_STATUS_COLORS: Record<ProductStatus, string> = {
+   243→  fresh: 'bg-emerald-100 text-emerald-800',
+   244→  warning: 'bg-amber-100 text-amber-800',
+   245→  critical: 'bg-red-100 text-red-800',
+   246→  expired: 'bg-gray-100 text-gray-500 line-through',
+   247→  consumed: 'bg-blue-100 text-blue-800',
+   248→};
+   249→
+   250→// ─── Activity Log Action Types (V2 Enriched) ──────────────────────────────
+   251→
+   252→export type ActivityActionType =
+   253→  // Portier Virtuel
+   254→  | 'ring'
+   255→  | 'message_left'
+   256→  | 'instruction_used'
+   257→  | 'porter_mode_changed'
+   258→  // QR générique
+   259→  | 'wifi_connected'
+   260→  | 'qr_scanned'
+   261→  | 'pin_verified'
+   262→  // Médicaments
+   263→  | 'medication_taken'
+   264→  // Corvées
+   265→  | 'chore_completed'
+   266→  | 'chore_validated'
+   267→  | 'chore_rejected'
+   268→  // Stock & DLC
+   269→  | 'item_checked'
+   270→  | 'item_added'
+   271→  | 'item_removed'
+   272→  | 'product_scanned'
+   273→  | 'product_consumed'
+   274→  | 'stock_alert'
+   275→  | 'dlc_warning'
+   276→  | 'item_added_to_list'
+   277→  // Livre d'or
+   278→  | 'guestbook_entry'
+   279→  | 'guestbook_entry_added'
+   280→  // Membres
+   281→  | 'member_invited'
+   282→  | 'member_joined'
+   283→  | 'member_role_changed'
+   284→  // V2 modules
+   285→  | 'energy_reading_added'
+   286→  | 'key_borrowed'
+   287→  | 'key_returned';
+   288→
+   289→export const ACTION_TYPE_LABELS: Record<ActivityActionType, string> = {
+   290→  ring: 'Sonnette',
+   291→  message_left: 'Message laissé',
+   292→  instruction_used: 'Consigne utilisée',
+   293→  porter_mode_changed: 'Mode portier changé',
+   294→  wifi_connected: 'Wi-Fi connecté',
+   295→  qr_scanned: 'QR scanné',
+   296→  pin_verified: 'PIN vérifié',
+   297→  medication_taken: 'Médicament pris',
+   298→  chore_completed: 'Corvée terminée',
+   299→  chore_validated: 'Corvée validée',
+   300→  chore_rejected: 'Corvée rejetée',
+   301→  item_checked: 'Article coché',
+   302→  item_added: 'Article ajouté',
+   303→  item_removed: 'Article supprimé',
+   304→  product_scanned: 'Produit scanné',
+   305→  product_consumed: 'Produit consommé',
+   306→  stock_alert: 'Alerte stock bas',
+   307→  dlc_warning: 'Alerte péremption',
+   308→  item_added_to_list: 'Ajouté à la liste de courses',
+   309→  guestbook_entry: 'Entrée livre d\'or',
+   310→  guestbook_entry_added: 'Nouveau message livre d\'or',
+   311→  member_invited: 'Membre invité',
+   312→  member_joined: 'Membre rejoint',
+   313→  member_role_changed: 'Rôle modifié',
+   314→  energy_reading_added: 'Relevé énergie ajouté',
+   315→  key_borrowed: 'Clé empruntée',
+   316→  key_returned: 'Clé rendue',
+   317→};
+   318→
+   319→export const ACTION_TYPE_ICONS: Record<ActivityActionType, string> = {
+   320→  ring: 'Bell',
+   321→  message_left: 'MessageSquare',
+   322→  instruction_used: 'ClipboardList',
+   323→  porter_mode_changed: 'ToggleLeft',
+   324→  wifi_connected: 'Wifi',
+   325→  qr_scanned: 'QrCode',
+   326→  pin_verified: 'Lock',
+   327→  medication_taken: 'Pill',
+   328→  chore_completed: 'CheckCircle',
+   329→  chore_validated: 'ThumbsUp',
+   330→  chore_rejected: 'XCircle',
+   331→  item_checked: 'Check',
+   332→  item_added: 'Plus',
+   333→  item_removed: 'Trash2',
+   334→  product_scanned: 'ScanBarcode',
+   335→  product_consumed: 'UtensilsCrossed',
+   336→  stock_alert: 'AlertTriangle',
+   337→  dlc_warning: 'Clock',
+   338→  item_added_to_list: 'ShoppingCart',
+   339→  guestbook_entry: 'BookOpen',
+   340→  guestbook_entry_added: 'MessageSquare',
+   341→  member_invited: 'UserPlus',
+   342→  member_joined: 'UserCheck',
+   343→  member_role_changed: 'Shield',
+   344→  energy_reading_added: 'Zap',
+   345→  key_borrowed: 'ArrowRightLeft',
+   346→  key_returned: 'KeyRound',
+   347→};
+   348→
+   349→// ─── Chore Types ──────────────────────────────────────────────────────────
+   350→
+   351→export type ChoreFrequency = 'daily' | 'weekly' | 'once';
+   352→
+   353→export const CHORE_FREQUENCY_LABELS: Record<ChoreFrequency, string> = {
+   354→  daily: 'Quotidien',
+   355→  weekly: 'Hebdomadaire',
+   356→  once: 'Ponctuel',
+   357→};
+   358→
+   359→export type ChoreCompletionStatus = 'pending_validation' | 'validated' | 'rejected';
+   360→
+   361→export const CHORE_COMPLETION_STATUS_LABELS: Record<ChoreCompletionStatus, string> = {
+   362→  pending_validation: 'En attente',
+   363→  validated: 'Validé',
+   364→  rejected: 'Rejeté',
+   365→};
+   366→
+   367→export const CHORE_COMPLETION_STATUS_COLORS: Record<ChoreCompletionStatus, string> = {
+   368→  pending_validation: 'bg-amber-100 text-amber-800',
+   369→  validated: 'bg-emerald-100 text-emerald-800',
+   370→  rejected: 'bg-red-100 text-red-800',
+   371→};
+   372→
+   373→// ─── Invitation Status ────────────────────────────────────────────────────
+   374→
+   375→export type InvitationStatus = 'pending' | 'accepted' | 'expired' | 'revoked';
+   376→
+   377→export const INVITATION_STATUS_LABELS: Record<InvitationStatus, string> = {
+   378→  pending: 'En attente',
+   379→  accepted: 'Acceptée',
+   380→  expired: 'Expirée',
+   381→  revoked: 'Annulée',
+   382→};
+   383→
+   384→// ─── Notification Types ───────────────────────────────────────────────────
+   385→
+   386→export type NotificationType =
+   387→  | 'dlc_warning'
+   388→  | 'stock_alert'
+   389→  | 'visitor_message'
+   390→  | 'visitor_ring'
+   391→  | 'chore_validation'
+   392→  | 'chore_request'
+   393→  | 'member_joined'
+   394→  | 'system';
+   395→
+   396→export const NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = {
+   397→  dlc_warning: 'Alerte Péremption',
+   398→  stock_alert: 'Stock Bas',
+   399→  visitor_message: 'Message Visiteur',
+   400→  visitor_ring: 'Sonnette',
+   401→  chore_validation: 'Validation Corvée',
+   402→  chore_request: 'Corvée à Valider',
+   403→  member_joined: 'Nouveau Membre',
+   404→  system: 'Système',
+   405→};
+   406→
+   407→// ─── Content JSON Schemas (par type de QR) ────────────────────────────────
+   408→
+   409→export interface WifiContent {
+   410→  ssid: string;
+   411→  password: string;
+   412→  security: 'WPA' | 'WPA2' | 'WPA3' | 'WEP' | 'OPEN';
+   413→  hiddenNetwork?: boolean;
+   414→}
+   415→
+   416→export interface LinkContent {
+   417→  url: string;
+   418→  title: string;
+   419→  description?: string;
+   420→  favicon?: string;
+   421→}
+   422→
+   423→export interface InfoContent {
+   424→  title: string;
+   425→  body: string;
+   426→  updatedAt?: string;
+   427→}
+   428→
+   429→export interface PostitContent {
+   430→  message: string;
+   431→  color: 'yellow' | 'pink' | 'blue' | 'green' | 'purple';
+   432→}
+   433→
+   434→export interface ShoppingItem {
+   435→  id: string;
+   436→  text: string;
+   437→  checked: boolean;
+   438→  addedBy?: string;
+   439→  fromStockAlert?: boolean; // V2: ajouté automatiquement par alerte stock
+   440→}
+   441→
+   442→export interface ShoppingListContent {
+   443→  items: ShoppingItem[];
+   444→}
+   445→
+   446→export interface DoormanInstruction {
+   447→  id: string;
+   448→  label: string;
+   449→  description?: string;
+   450→}
+   451→
+   452→export interface DoormanContent {
+   453→  mode: 'present' | 'absent';
+   454→  predefinedInstructions: DoormanInstruction[];
+   455→  showMessageField: boolean;
+   456→  showRingButton: boolean;
+   457→  welcomeMessage?: string;
+   458→}
+   459→
+   460→export interface MedicationEntry {
+   461→  id?: string;
+   462→  name: string;
+   463→  dosage: string;
+   464→  time?: string;
+   465→  taken?: boolean;
+   466→}
+   467→
+   468→export interface MedicationContent {
+   469→  medications: MedicationEntry[];
+   470→  reminderMessage?: string;
+   471→}
+   472→
+   473→export interface ChoreItem {
+   474→  id: string;
+   475→  title: string;
+   476→  points: number;
+   477→  assignedTo?: string;
+   478→  completed: boolean;
+   479→  completedAt?: string;
+   480→  completedBy?: string;
+   481→}
+   482→
+   483→export interface ChoresContent {
+   484→  chores: ChoreItem[];
+   485→  rewardMessage?: string;
+   486→}
+   487→
+   488→// V2: Nouveaux types de contenu
+   489→
+   490→export interface GuestbookContent {
+   491→  title?: string;
+   492→  subtitle?: string;
+   493→  requireName: boolean;
+   494→}
+   495→
+   496→export interface EnergyReading {
+   497→  id: string;
+   498→  value: number;
+   499→  date: string;
+   500→  createdAt: string;
+   501→}
+   502→
+   503→export interface EnergyCounterContent {
+   504→  meterId?: string;
+   505→  provider?: string;
+   506→  currentReading?: number;
+   507→  unit?: string;
+   508→  notes?: string;
+   509→  readings?: EnergyReading[];
+   510→}
+   511→
+   512→export interface KeysTrackerEntry {
+   513→  id: string;
+   514→  name: string;
+   515→  description?: string;
+   516→  lastLocation?: string;
+   517→  lastSeenAt?: string;
+   518→}
+   519→
+   520→export interface KeysTrackerItem {
+   521→  id: string;
+   522→  name: string;
+   523→  description?: string;
+   524→  lastLocation?: string;
+   525→  lastSeenAt?: string;
+   526→  borrowedBy?: string;
+   527→  isBorrowed: boolean;
+   528→}
+   529→
+   530→export interface KeysTrackerContent {
+   531→  items: KeysTrackerItem[];
+   532→}
+   533→
+   534→export interface DailyMenuEntry {
+   535→  id: string;
+   536→  meal: 'petit-dejeuner' | 'dejeuner' | 'gouter' | 'diner';
+   537→  dish: string;
+   538→  notes?: string;
+   539→}
+   540→
+   541→export interface DailyMenuContent {
+   542→  date: string;
+   543→  meals: DailyMenuEntry[];
+   544→}
+   545→
+   546→export interface TodoListContent {
+   547→  title?: string;
+   548→  items: Array<{ id: string; text: string; checked: boolean }>;
+   549→}
+   550→
+   551→export interface GuestbookEntryData {
+   552→  id: string;
+   553→  guestName: string;
+   554→  message: string;
+   555→  createdAt: string;
+   556→}
+   557→
+   558→export interface DeepCleaningItem {
+   559→  id: string;
+   560→  text: string;
+   561→  frequency: 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'quarterly';
+   562→  lastDone?: string;
+   563→  checked: boolean;
+   564→}
+   565→
+   566→export interface DeepCleaningContent {
+   567→  title?: string;
+   568→  items: DeepCleaningItem[];
+   569→}
+   570→
+   571→export type QrContentUnion =
+   572→  | WifiContent
+   573→  | LinkContent
+   574→  | InfoContent
+   575→  | PostitContent
+   576→  | ShoppingListContent
+   577→  | DoormanContent
+   578→  | MedicationContent
+   579→  | ChoresContent
+   580→  | GuestbookContent
+   581→  | EnergyCounterContent
+   582→  | KeysTrackerContent
+   583→  | DailyMenuContent
+   584→  | TodoListContent
+   585→  | DeepCleaningContent;
+   586→
+   587→// ─── API Response Types ───────────────────────────────────────────────────
+   588→
+   589→export interface ApiResponse<T> {
+   590→  success: boolean;
+   591→  data?: T;
+   592→  error?: string;
+   593→  message?: string;
+   594→}
+   595→
+   596→export interface PaginatedResponse<T> extends ApiResponse<T[]> {
+   597→  total: number;
+   598→  page: number;
+   599→  pageSize: number;
+   600→  totalPages: number;
+   601→}
+   602→
+   603→// ─── RLS Helper Types (emulated at application layer) ─────────────────────
+   604→
+   605→export interface MembershipContext {
+   606→  homeId: string;
+   607→  userId: string;
+   608→  role: HomeMemberRole;
+   609→}
+   610→
+   611→// █████████████████████████████████████████████████████████████████████████████████
+   612→// ██  V3 — MODULE A : MON QUARTIER CONNECTÉ                               ██
+   613→// █████████████████████████████████████████████████████████████████████████████████
+   614→
+   615→// ─── Merchant Categories ─────────────────────────────────────────────────
+   616→
+   617→export type MerchantCategory =
+   618→  | 'boulangerie'
+   619→  | 'boucherie'
+   620→  | 'pharmacie'
+   621→  | 'epicerie'
+   622→  | 'fleuriste'
+   623→  | 'boulangerie_patisserie'
+   624→  | 'supermarche'
+   625→  | 'pressing'
+   626→  | 'librairie'
+   627→  | 'quincaillerie'
+   628→  | 'bar_cafe'
+   629→  | 'restaurant'
+   630→  | 'salon_coiffure'
+   631→  | 'autre';
+   632→
+   633→export const MERCHANT_CATEGORY_LABELS: Record<MerchantCategory, string> = {
+   634→  boulangerie: 'Boulangerie',
+   635→  boucherie: 'Boucherie / Charcuterie',
+   636→  pharmacie: 'Pharmacie',
+   637→  epicerie: 'Épicerie',
+   638→  fleuriste: 'Fleuriste',
+   639→  boulangerie_patisserie: 'Boulangerie-Pâtisserie',
+   640→  supermarche: 'Supermarché',
+   641→  pressing: 'Pressing',
+   642→  librairie: 'Librairie',
+   643→  quincaillerie: 'Quincaillerie',
+   644→  bar_cafe: 'Bar / Café',
+   645→  restaurant: 'Restaurant',
+   646→  salon_coiffure: 'Salon de Coiffure',
+   647→  autre: 'Autre',
+   648→};
+   649→
+   650→export const MERCHANT_CATEGORY_ICONS: Record<MerchantCategory, string> = {
+   651→  boulangerie: 'Croissant',
+   652→  boucherie: 'Beef',
+   653→  pharmacie: 'Pill',
+   654→  epicerie: 'ShoppingBasket',
+   655→  fleuriste: 'Flower2',
+   656→  boulangerie_patisserie: 'Cake',
+   657→  supermarche: 'ShoppingCart',
+   658→  pressing: 'Shirt',
+   659→  librairie: 'BookOpen',
+   660→  quincaillerie: 'Wrench',
+   661→  bar_cafe: 'Coffee',
+   662→  restaurant: 'UtensilsCrossed',
+   663→  salon_coiffure: 'Scissors',
+   664→  autre: 'Store',
+   665→};
+   666→
+   667→// ─── Promo Types ─────────────────────────────────────────────────────────
+   668→
+   669→export type PromoSource = 'local' | 'scraped';
+   670→
+   671→export type ScrapingSource = 'carrefour' | 'auchan' | 'leclerc';
+   672→
+   673→export const SCRAPING_SOURCE_LABELS: Record<ScrapingSource, string> = {
+   674→  carrefour: 'Carrefour',
+   675→  auchan: 'Auchan',
+   676→  leclerc: 'Leclerc',
+   677→};
+   678→
+   679→// ─── Subscription Tiers ───────────────────────────────────────────────────
+   680→
+   681→export type SubscriptionTier = 'free' | 'premium' | 'featured';
+   682→
+   683→export const SUBSCRIPTION_TIER_LABELS: Record<SubscriptionTier, string> = {
+   684→  free: 'Gratuit',
+   685→  premium: 'Premium',
+   686→  featured: 'En Vedette',
+   687→};
+   688→
+   689→export const SUBSCRIPTION_TIER_COLORS: Record<SubscriptionTier, string> = {
+   690→  free: 'bg-gray-100 text-gray-700',
+   691→  premium: 'bg-amber-100 text-amber-800',
+   692→  featured: 'bg-purple-100 text-purple-800',
+   693→};
+   694→
+   695→// ─── Transaction Types ───────────────────────────────────────────────────
+   696→
+   697→export type TransactionType = 'flash_sale' | 'commission' | 'subscription' | 'redemption';
+   698→
+   699→export const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
+   700→  flash_sale: 'Vente Flash',
+   701→  commission: 'Commission',
+   702→  subscription: 'Abonnement',
+   703→  redemption: 'Coupon',
+   704→};
+   705→
+   706→export type TransactionStatus = 'pending' | 'completed' | 'failed' | 'refunded';
+   707→
+   708→export const TRANSACTION_STATUS_LABELS: Record<TransactionStatus, string> = {
+   709→  pending: 'En attente',
+   710→  completed: 'Complété',
+   711→  failed: 'Échoué',
+   712→  refunded: 'Remboursé',
+   713→};
+   714→
+   715→// █████████████████████████████████████████████████████████████████████████████████
+   716→// ██  V3 — MODULE B : SERVICES À LA PERSONNE                               ██
+   717→// █████████████████████████████████████████████████████████████████████████████████
+   718→
+   719→// ─── Professional Categories ─────────────────────────────────────────────
+   720→
+   721→export type ProfessionalCategory =
+   722→  // Dépannage urgence
+   723→  | 'plumber'
+   724→  | 'electrician'
+   725→  | 'locksmith'
+   726→  | 'heating'
+   727→  // Entretien maison
+   728→  | 'cleaner'
+   729→  | 'gardener'
+   730→  | 'handyman'
+   731→  // Bien-être
+   732→  | 'hairdresser'
+   733→  | 'beautician'
+   734→  | 'masseur'
+   735→  // Assistance
+   736→  | 'tutor'
+   737→  | 'babysitter'
+   738→  | 'pet_sitter';
+   739→
+   740→export const PROFESSIONAL_CATEGORY_GROUP: Record<ProfessionalCategory, { group: string; label: string; icon: string }> = {
+   741→  plumber:       { group: 'depannage',  label: 'Plombier',          icon: 'Droplets' },
+   742→  electrician:   { group: 'depannage',  label: 'Électricien',      icon: 'Zap' },
+   743→  locksmith:     { group: 'depannage',  label: 'Serrurier',        icon: 'KeyRound' },
+   744→  heating:       { group: 'depannage',  label: 'Chauffagiste',     icon: 'Flame' },
+   745→  cleaner:       { group: 'entretien',  label: 'Ménage',           icon: 'Sparkles' },
+   746→  gardener:      { group: 'entretien',  label: 'Jardinage',        icon: 'Flower2' },
+   747→  handyman:      { group: 'entretien',  label: 'Bricolage',        icon: 'Wrench' },
+   748→  hairdresser:   { group: 'bien_etre',  label: 'Coiffure',         icon: 'Scissors' },
+   749→  beautician:    { group: 'bien_etre',  label: 'Esthétique',       icon: 'Sparkles' },
+   750→  masseur:       { group: 'bien_etre',  label: 'Massage',          icon: 'Heart' },
+   751→  tutor:         { group: 'assistance', label: 'Soutien scolaire', icon: 'GraduationCap' },
+   752→  babysitter:    { group: 'assistance', label: 'Babysitting',      icon: 'Baby' },
+   753→  pet_sitter:    { group: 'assistance', label: 'Pet-sitting',      icon: 'PawPrint' },
+   754→};
+   755→
+   756→export const PROFESSIONAL_GROUP_LABELS: Record<string, string> = {
+   757→  depannage: '🛠️ Dépannage Urgence',
+   758→  entretien: '🧼 Entretien Maison',
+   759→  bien_etre: '💅 Bien-être',
+   760→  assistance: '📚 Assistance',
+   761→};
+   762→
+   763→// ─── Service Request Status ─────────────────────────────────────────────
+   764→
+   765→export type ServiceRequestStatus =
+   766→  | 'pending'
+   767→  | 'accepted'
+   768→  | 'in_progress'
+   769→  | 'completed'
+   770→  | 'cancelled'
+   771→  | 'disputed';
+   772→
+   773→export const SERVICE_REQUEST_STATUS_LABELS: Record<ServiceRequestStatus, string> = {
+   774→  pending: 'En attente',
+   775→  accepted: 'Accepté',
+   776→  in_progress: 'En cours',
+   777→  completed: 'Terminé',
+   778→  cancelled: 'Annulé',
+   779→  disputed: 'Litige',
+   780→};
+   781→
+   782→export const SERVICE_REQUEST_STATUS_COLORS: Record<ServiceRequestStatus, string> = {
+   783→  pending: 'bg-amber-100 text-amber-800',
+   784→  accepted: 'bg-sky-100 text-sky-800',
+   785→  in_progress: 'bg-blue-100 text-blue-800',
+   786→  completed: 'bg-emerald-100 text-emerald-800',
+   787→  cancelled: 'bg-gray-100 text-gray-500',
+   788→  disputed: 'bg-red-100 text-red-800',
+   789→};
+   790→
+   791→export type UrgencyLevel = 'normal' | 'urgent' | 'emergency';
+   792→
+   793→export const URGENCY_LEVEL_LABELS: Record<UrgencyLevel, string> = {
+   794→  normal: 'Normal',
+   795→  urgent: 'Urgent',
+   796→  emergency: 'Urgence',
+   797→};
+   798→
+   799→export const URGENCY_LEVEL_COLORS: Record<UrgencyLevel, string> = {
+   800→  normal: 'bg-slate-100 text-slate-700',
+   801→  urgent: 'bg-orange-100 text-orange-800',
+   802→  emergency: 'bg-red-100 text-red-800',
+   803→};
+   804→
+   805→// ─── Emergency QR Categories ──────────────────────────────────────────────
+   806→
+   807→export type EmergencyCategory = 'plumber' | 'electrician' | 'locksmith' | 'heating';
+   808→
+   809→export const EMERGENCY_CATEGORY_LABELS: Record<EmergencyCategory, string> = {
+   810→  plumber: 'Plombier',
+   811→  electrician: 'Électricien',
+   812→  locksmith: 'Serrurier',
+   813→  heating: 'Chauffagiste',
+   814→};
+   815→
+   816→// ─── Service Price Units ──────────────────────────────────────────────────
+   817→
+   818→export type PriceUnit = 'hour' | 'flat_rate' | 'estimate';
+   819→
+   820→export const PRICE_UNIT_LABELS: Record<PriceUnit, string> = {
+   821→  hour: 'De l\'heure',
+   822→  flat_rate: 'Forfait',
+   823→  estimate: 'Sur devis',
+   824→};
+   825→
+   826→// ─── Scraping Job Status ──────────────────────────────────────────────────
+   827→
+   828→export type ScrapingJobStatus = 'running' | 'success' | 'failed';
+   829→
+   830→export const SCRAPING_JOB_STATUS_LABELS: Record<ScrapingJobStatus, string> = {
+   831→  running: 'En cours',
+   832→  success: 'Réussi',
+   833→  failed: 'Échoué',
+   834→};
+   835→
+   836→// ─── V3 Activity & Notification Types ─────────────────────────────────────
+   837→
+   838→// Ajout aux types existants pour V3
+   839→export type V3ActivityActionType =
+   840→  | 'promo_redeemed'
+   841→  | 'flash_sale_launched'
+   842→  | 'service_requested'
+   843→  | 'service_completed'
+   844→  | 'review_left'
+   845→  | 'merchant_registered'
+   846→  | 'professional_registered'
+   847→  | 'subscription_upgraded';
+   848→
+   849→export type V3NotificationType =
+   850→  | 'promo_nearby'
+   851→  | 'flash_sale_alert'
+   852→  | 'service_accepted'
+   853→  | 'service_update'
+   854→  | 'review_requested'
+   855→  | 'subscription_expiring';
+   856→
+   857→// ─── V3 Content JSON Schemas ─────────────────────────────────────────────
+   858→
+   859→export interface EmergencyServiceContent {
+   860→  emergencyCategory: EmergencyCategory;
+   861→  equipmentInfo?: Record<string, string>;
+   862→}
+   863→
+   864→export interface NeighborhoodContent {
+   865→  centerLatitude?: number;
+   866→  centerLongitude?: number;
+   867→  defaultRadiusKm?: number;
+   868→}
+   869→
+   870→// ─── Subscription Plans ───────────────────────────────────────────────────
+   871→
+   872→export type SubscriberType = 'merchant' | 'professional';
+   873→export type SubscriptionPlan = 'premium' | 'featured';
+   874→
+   875→export interface SubscriptionPlanInfo {
+   876→  plan: SubscriptionPlan;
+   877→  subscriberType: SubscriberType;
+   878→  amount: number;
+   879→  currency: string;
+   880→  label: string;
+   881→  features: string[];
+   882→}
+   883→
+   884→// ─── Commission Config ────────────────────────────────────────────────────
+   885→
+   886→export interface CommissionConfig {
+   887→  type: 'flash_sale' | 'redemption' | 'service_match';
+   888→  label: string;
+   889→  minAmount: number;
+   890→  maxAmount: number;
+   891→  defaultAmount: number;
+   892→  description: string;
+   893→}
+   894→
+   895→// █████████████████████████████████████████████████████████████████████████████████
+   896→// ██  V4 — QR CODES PHYSIQUES & ACTIVATION                             ██
+   897→// █████████████████████████████████████████████████████████████████████████████████
+   898→
+   899→// ─── User Roles ─────────────────────────────────────────────────────────
+   900→
+   901→export type UserRole = 'user' | 'superadmin';
+   902→
+   903→// ─── Physical QR Code Status ────────────────────────────────────────────
+   904→
+   905→export type PhysicalQrStatus = 'inactive' | 'active' | 'lost' | 'cancelled';
+   906→
+   907→export const PHYSICAL_QR_STATUS_LABELS: Record<PhysicalQrStatus, string> = {
+   908→  inactive: 'Inactif',
+   909→  active: 'Activé',
+   910→  lost: 'Perdu',
+   911→  cancelled: 'Annulé',
+   912→};
+   913→
+   914→export const PHYSICAL_QR_STATUS_COLORS: Record<PhysicalQrStatus, string> = {
+   915→  inactive: 'bg-gray-100 text-gray-700',
+   916→  active: 'bg-emerald-100 text-emerald-800',
+   917→  lost: 'bg-amber-100 text-amber-800',
+   918→  cancelled: 'bg-red-100 text-red-800',
+   919→};
+   920→
+   921→// ─── Activation Log Actions ─────────────────────────────────────────────
+   922→
+   923→export type ActivationAction = 'activated' | 'deactivated' | 'marked_lost' | 'cancelled';
+   924→
+   925→export const ACTIVATION_ACTION_LABELS: Record<ActivationAction, string> = {
+   926→  activated: 'Activé',
+   927→  deactivated: 'Désactivé',
+   928→  marked_lost: 'Marqué perdu',
+   929→  cancelled: 'Annulé',
+   930→};
+   931→
+   932→// ─── Design Config ──────────────────────────────────────────────────────
+   933→
+   934→export type DotStyle = 'square' | 'rounded' | 'dots' | 'classy' | 'classy-rounded' | 'extra-rounded';
+   935→
+   936→export interface DesignConfig {
+   937→  color: string;         // hex: "#2563EB"
+   938→  logoUrl?: string;      // URL du logo central
+   939→  dotStyle: DotStyle;    // style des points du QR
+   940→  backgroundColor?: string;
+   941→}
+   942→
+   943→// ─── Batch Quantities ───────────────────────────────────────────────────
+   944→
+   945→export const BATCH_QUANTITIES = [10, 15, 20] as const;
+   946→export type BatchQuantity = (typeof BATCH_QUANTITIES)[number];
+   947→
+   948→// ─── Dot Style Options ──────────────────────────────────────────────────
+   949→
+   950→export const DOT_STYLE_OPTIONS: Record<DotStyle, string> = {
+   951→  square: 'Carré',
+   952→  rounded: 'Arrondi',
+   953→  dots: 'Pointillé',
+   954→  classy: 'Classique',
+   955→  'classy-rounded': 'Classique arrondi',
+   956→  'extra-rounded': 'Très arrondi',
+   957→};
+   958→

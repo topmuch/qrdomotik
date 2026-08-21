@@ -534,6 +534,7 @@ model PromoRedemption {
   id               String   @id @default(cuid())
   promoId          String   @map("promo_id")
   userId           String   @map("user_id")
+  status           String   @default("generated") // 'generated' | 'redeemed' | 'expired' | 'cancelled'
   redeemedAt       DateTime @default(now()) @map("redeemed_at")
   commissionAmount Float    @default(0) @map("commission_amount")
 
@@ -544,6 +545,7 @@ model PromoRedemption {
   @@index([promoId])
   @@index([userId])
   @@index([redeemedAt])
+  @@index([status])
   @@map("promo_redemptions")
 }
 

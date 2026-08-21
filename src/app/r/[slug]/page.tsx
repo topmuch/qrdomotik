@@ -20,6 +20,8 @@ import { GuestbookModule } from '@/components/modules/GuestbookModule';
 import { EnergyCounterModule } from '@/components/modules/EnergyCounterModule';
 import { KeysTrackerModule } from '@/components/modules/KeysTrackerModule';
 import { DeepCleaningModule } from '@/components/modules/DeepCleaningModule';
+import { EmergencyView } from '@/components/emergency/EmergencyView';
+import { NeighborhoodView } from '@/components/neighborhood/NeighborhoodView';
 import type { QrType } from '@/types';
 import { QR_TYPE_LABELS } from '@/types';
 
@@ -94,6 +96,10 @@ function ModuleRouter({
       return <KeysTrackerModule content={content} slug={slug} />;
     case 'deep_cleaning':
       return <DeepCleaningModule content={content} slug={slug} />;
+    case 'emergency_service':
+      return <EmergencyView content={content} slug={slug} />;
+    case 'neighborhood':
+      return <NeighborhoodView content={content} slug={slug} />;
     default:
       return (
         <div className="text-center text-muted-foreground py-8">

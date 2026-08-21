@@ -1,0 +1,669 @@
+     1→'use client';
+     2→
+     3→import { useState, useEffect, useCallback, useRef } from 'react';
+     4→import { motion, AnimatePresence } from 'framer-motion';
+     5→import { toast } from 'sonner';
+     6→import {
+     7→  Card, CardContent, CardDescription, CardHeader, CardTitle,
+     8→} from '@/components/ui/card';
+     9→import { Button } from '@/components/ui/button';
+    10→import { Input } from '@/components/ui/input';
+    11→import { Badge } from '@/components/ui/badge';
+    12→import { ScrollArea } from '@/components/ui/scroll-area';
+    13→import { Separator } from '@/components/ui/separator';
+    14→import {
+    15→  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+    16→} from '@/components/ui/select';
+    17→import {
+    18→  MapPin, Store, Tag, Percent, Clock, Search, Navigation, X,
+    19→  ShoppingCart, Zap, ChevronDown, ChevronUp, ExternalLink, Star,
+    20→} from 'lucide-react';
+    21→import {
+    22→  MERCHANT_CATEGORY_LABELS, MERCHANT_CATEGORY_ICONS,
+    23→  type MerchantCategory, type PromoSource,
+    24→} from '@/types';
+    25→import { DEFAULT_MAP_CENTER, DEFAULT_SEARCH_RADIUS_KM } from '@/lib/constants';
+    26→import { formatDistance } from '@/lib/geo';
+    27→
+    28→type MerchantData = {
+    29→  id: string;
+    30→  name: string;
+    31→  description: string;
+    32→  category: string;
+    33→  address: string;
+    34→  latitude: number;
+    35→  longitude: number;
+    36→  phone: string;
+    37→  email: string;
+    38→  imageUrl: string | null;
+    39→  subscriptionTier: string;
+    40→  distanceKm: number;
+    41→  distanceText: string;
+    42→  _count: { promos: number; reviews: number };
+    43→};
+    44→
+    45→type PromoData = {
+    46→  id: string;
+    47→  title: string;
+    48→  description: string;
+    49→  imageUrl: string | null;
+    50→  originalPrice: number | null;
+    51→  promoPrice: number | null;
+    52→  validFrom: string;
+    53→  validUntil: string | null;
+    54→  source: string;
+    55→  category: string;
+    56→  merchantId: string | null;
+    57→  merchantName: string;
+    58→  merchantCategory: string | null;
+    59→  distanceKm: number;
+    60→  distanceText: string | null;
+    61→  matchScore: number;
+    62→  discountPct: number;
+    63→  redemptionsCount: number;
+    64→  isFlashSale: boolean;
+    65→  flashSaleExpiresAt: string | null;
+    66→};
+    67→
+    68→type Tab = 'map' | 'promos' | 'merchants';
+    69→
+    70→const CATEGORIES = Object.entries(MERCHANT_CATEGORY_LABELS) as [MerchantCategory, string][];
+    71→
+    72→export function NeighborhoodView() {
+    73→  const [tab, setTab] = useState<Tab>('promos');
+    74→  const [merchants, setMerchants] = useState<MerchantData[]>([]);
+    75→  const [promos, setPromos] = useState<PromoData[]>([]);
+    76→  const [loading, setLoading] = useState(false);
+    77→  const [search, setSearch] = useState('');
+    78→  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+    79→  const [sourceFilter, setSourceFilter] = useState<string>('all');
+    80→  const [showMatched, setShowMatched] = useState(false);
+    81→  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+    82→  const [selectedPromo, setSelectedPromo] = useState<PromoData | null>(null);
+    83→  const [selectedMerchant, setSelectedMerchant] = useState<MerchantData | null>(null);
+    84→  const mapRef = useRef<HTMLDivElement>(null);
+    85→
+    86→  const getLat = () => userLocation?.lat ?? DEFAULT_MAP_CENTER.latitude;
+    87→  const getLng = () => userLocation?.lng ?? DEFAULT_MAP_CENTER.longitude;
+    88→
+    89→  const fetchMerchants = useCallback(async () => {
+    90→    setLoading(true);
+    91→    try {
+    92→      const params = new URLSearchParams({
+    93→        latitude: String(getLat()),
+    94→        longitude: String(getLng()),
+    95→        radiusKm: String(DEFAULT_SEARCH_RADIUS_KM),
+    96→        limit: '50',
+    97→      });
+    98→      if (selectedCategory !== 'all') params.set('category', selectedCategory);
+    99→      if (search) params.set('search', search);
+   100→
+   101→      const res = await fetch(`/api/merchants?${params}`);
+   102→      const json = await res.json();
+   103→      if (json.success) setMerchants(json.data);
+   104→    } catch {
+   105→      toast.error('Erreur chargement commerçants');
+   106→    } finally {
+   107→      setLoading(false);
+   108→    }
+   109→  }, [selectedCategory, search]);
+   110→
+   111→  const fetchPromos = useCallback(async () => {
+   112→    setLoading(true);
+   113→    try {
+   114→      const params = new URLSearchParams({
+   115→        latitude: String(getLat()),
+   116→        longitude: String(getLng()),
+   117→        radiusKm: String(DEFAULT_SEARCH_RADIUS_KM),
+   118→        limit: '50',
+   119→      });
+   120→      if (selectedCategory !== 'all') params.set('category', selectedCategory);
+   121→      if (sourceFilter !== 'all') params.set('source', sourceFilter);
+   122→      if (search) params.set('search', search);
+   123→      if (showMatched) params.set('shoppingList', 'pain lait beurre fromage oeufs');
+   124→
+   125→      const res = await fetch(`/api/promos?${params}`);
+   126→      const json = await res.json();
+   127→      if (json.success) setPromos(json.data);
+   128→    } catch {
+   129→      toast.error('Erreur chargement promos');
+   130→    } finally {
+   131→      setLoading(false);
+   132→    }
+   133→  }, [selectedCategory, sourceFilter, search, showMatched]);
+   134→
+   135→  useEffect(() => {
+   136→    if (navigator.geolocation) {
+   137→      navigator.geolocation.getCurrentPosition(
+   138→        (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+   139→        () => { /* use default */ }
+   140→      );
+   141→    }
+   142→  }, []);
+   143→
+   144→  useEffect(() => {
+   145→    if (tab === 'merchants') fetchMerchants();
+   146→    else if (tab === 'promos') fetchPromos();
+   147→  }, [tab, fetchMerchants, fetchPromos]);
+   148→
+   149→  const requestGeolocation = () => {
+   150→    if (navigator.geolocation) {
+   151→      navigator.geolocation.getCurrentPosition(
+   152→        (pos) => {
+   153→          setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+   154→          toast.success('Position mise à jour');
+   155→          if (tab === 'merchants') fetchMerchants();
+   156→          else if (tab === 'promos') fetchPromos();
+   157→        },
+   158→        () => toast.error('Impossible d\'obtenir votre position'),
+   159→        { enableHighAccuracy: true }
+   160→      );
+   161→    }
+   162→  };
+   163→
+   164→  const redeemCoupon = async (promoId: string, merchantId: string) => {
+   165→    try {
+   166→      const res = await fetch('/api/promo-redemptions', {
+   167→        method: 'POST',
+   168→        headers: { 'Content-Type': 'application/json' },
+   169→        body: JSON.stringify({ promoId, userId: 'demo-user', merchantId }),
+   170→      });
+   171→      const json = await res.json();
+   172→      if (json.success) {
+   173→        toast.success('Coupon validé !');
+   174→        fetchPromos();
+   175→      } else {
+   176→        toast.error(json.error || 'Erreur lors de la validation');
+   177→      }
+   178→    } catch {
+   179→      toast.error('Erreur réseau');
+   180→    }
+   181→  };
+   182→
+   183→  return (
+   184→    <div className="space-y-4">
+   185→      {/* Header */}
+   186→      <div className="flex items-center justify-between">
+   187→        <div>
+   188→          <h2 className="text-xl font-bold flex items-center gap-2">
+   189→            <MapPin className="h-5 w-5 text-emerald-600" />
+   190→            Mon Quartier Connecté
+   191→          </h2>
+   192→          <p className="text-sm text-muted-foreground">
+   193→            Commerçants et promos autour de vous
+   194→          </p>
+   195→        </div>
+   196→        <Button variant="outline" size="sm" onClick={requestGeolocation}>
+   197→          <Navigation className="h-4 w-4 mr-1" />
+   198→          {userLocation ? 'Recalculer' : 'Ma position'}
+   199→        </Button>
+   200→      </div>
+   201→
+   202→      {/* Search & Filters */}
+   203→      <div className="flex flex-col sm:flex-row gap-2">
+   204→        <div className="relative flex-1">
+   205→          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   206→          <Input
+   207→            placeholder="Rechercher un commerçant ou promo..."
+   208→            value={search}
+   209→            onChange={(e) => setSearch(e.target.value)}
+   210→            className="pl-9"
+   211→          />
+   212→        </div>
+   213→        <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+   214→          <SelectTrigger className="w-full sm:w-48">
+   215→            <SelectValue placeholder="Catégorie" />
+   216→          </SelectTrigger>
+   217→          <SelectContent>
+   218→            <SelectItem value="all">Toutes les catégories</SelectItem>
+   219→            {CATEGORIES.map(([key, label]) => (
+   220→              <SelectItem key={key} value={key}>{label}</SelectItem>
+   221→            ))}
+   222→          </SelectContent>
+   223→        </Select>
+   224→      </div>
+   225→
+   226→      {/* Tabs */}
+   227→      <div className="flex gap-1 p-1 bg-muted rounded-lg">
+   228→        {([['promos', 'Promotions', Tag], ['merchants', 'Commerçants', Store], ['map', 'Carte', MapPin]] as const).map(
+   229→          ([value, label, Icon]) => (
+   230→            <button
+   231→              key={value}
+   232→              onClick={() => setTab(value as Tab)}
+   233→              className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
+   234→                tab === value
+   235→                  ? 'bg-background text-foreground shadow-sm'
+   236→                  : 'text-muted-foreground hover:text-foreground'
+   237→              }`}
+   238→            >
+   239→              <Icon className="h-4 w-4" />
+   240→              <span className="hidden sm:inline">{label}</span>
+   241→            </button>
+   242→          )
+   243→        )}
+   244→      </div>
+   245→
+   246→      {/* Source filter for promos */}
+   247→      {tab === 'promos' && (
+   248→        <div className="flex items-center gap-2 flex-wrap">
+   249→          <div className="flex gap-1">
+   250→            {([['all', 'Toutes'], ['local', 'Locale'], ['scraped', 'Scrapées']] as const).map(
+   251→              ([value, label]) => (
+   252→                <Button
+   253→                  key={value}
+   254→                  variant={sourceFilter === value ? 'default' : 'outline'}
+   255→                  size="sm"
+   256→                  onClick={() => setSourceFilter(value)}
+   257→                >
+   258→                  {label}
+   259→                </Button>
+   260→              )
+   261→            )}
+   262→          </div>
+   263→          <Button
+   264→            variant={showMatched ? 'default' : 'outline'}
+   265→            size="sm"
+   266→            onClick={() => setShowMatched(!showMatched)}
+   267→            className="ml-auto"
+   268→          >
+   269→            <ShoppingCart className="h-3.5 w-3.5 mr-1" />
+   270→            Match liste courses
+   271→          </Button>
+   272→        </div>
+   273→      )}
+   274→
+   275→      {/* Content */}
+   276→      <AnimatePresence mode="wait">
+   277→        {tab === 'map' && (
+   278→          <motion.div key="map" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+   279→            <Card>
+   280→              <CardHeader>
+   281→                <CardTitle className="text-base">Carte du Quartier</CardTitle>
+   282→                <CardDescription>
+   283→                  {merchants.length} commerçants dans un rayon de {DEFAULT_SEARCH_RADIUS_KM} km
+   284→                </CardDescription>
+   285→              </CardHeader>
+   286→              <CardContent>
+   287→                <div ref={mapRef} className="w-full h-80 rounded-lg bg-emerald-50 border flex items-center justify-center relative overflow-hidden">
+   288→                  {/* Simulated map with SVG grid */}
+   289→                  <div className="absolute inset-0 opacity-10">
+   290→                    <svg className="w-full h-full" viewBox="0 0 400 300">
+   291→                      <defs>
+   292→                        <pattern id="mapgrid" width="40" height="40" patternUnits="userSpaceOnUse">
+   293→                          <path d="M 40 0 L 0 0 0 40" fill="none" stroke="currentColor" strokeWidth="0.5" />
+   294→                        </pattern>
+   295→                      </defs>
+   296→                      <rect width="400" height="300" fill="url(#mapgrid)" className="text-emerald-600" />
+   297→                    </svg>
+   298→                  </div>
+   299→                  {/* Center marker */}
+   300→                  <div className="relative z-10 flex flex-col items-center">
+   301→                    <div className="h-8 w-8 bg-emerald-600 rounded-full border-4 border-white shadow-lg flex items-center justify-center">
+   302→                      <Navigation className="h-4 w-4 text-white" />
+   303→                    </div>
+   304→                    <span className="text-xs text-emerald-700 mt-1 font-medium">Vous</span>
+   305→                  </div>
+   306→                  {/* Merchant pins */}
+   307→                  {merchants.slice(0, 8).map((m, i) => {
+   308→                    const angle = (i / Math.min(merchants.length, 8)) * Math.PI * 2;
+   309→                    const r = 60 + (m.distanceKm / DEFAULT_SEARCH_RADIUS_KM) * 80;
+   310→                    const x = Math.cos(angle) * r;
+   311→                    const y = Math.sin(angle) * r;
+   312→                    return (
+   313→                      <div
+   314→                        key={m.id}
+   315→                        className="absolute z-10 cursor-pointer group"
+   316→                        style={{
+   317→                          left: `calc(50% + ${x}px - 12px)`,
+   318→                          top: `calc(50% + ${y}px - 12px)`,
+   319→                        }}
+   320→                        onClick={() => setSelectedMerchant(m)}
+   321→                      >
+   322→                        <div className={`h-6 w-6 rounded-full border-2 border-white shadow-md flex items-center justify-center text-white text-[10px] font-bold ${
+   323→                          m.subscriptionTier === 'featured' ? 'bg-purple-500' :
+   324→                          m.subscriptionTier === 'premium' ? 'bg-amber-500' : 'bg-emerald-500'
+   325→                        }`}>
+   326→                          {m._count.promos > 0 ? m._count.promos : ''}
+   327→                        </div>
+   328→                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block">
+   329→                          <div className="bg-white rounded shadow-lg px-2 py-1 text-xs whitespace-nowrap z-20">
+   330→                            {m.name}
+   331→                            <div className="text-muted-foreground">{m.distanceText}</div>
+   332→                          </div>
+   333→                        </div>
+   334→                      </div>
+   335→                    );
+   336→                  })}
+   337→                </div>
+   338→                <p className="text-xs text-muted-foreground mt-2 text-center">
+   339→                  Installation de Leaflet.js prévue pour la version production avec PostGIS
+   340→                </p>
+   341→              </CardContent>
+   342→            </Card>
+   343→          </motion.div>
+   344→        )}
+   345→
+   346→        {tab === 'promos' && (
+   347→          <motion.div key="promos" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+   348→            {loading ? (
+   349→              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+   350→                {Array.from({ length: 4 }).map((_, i) => (
+   351→                  <Card key={i} className="animate-pulse"><CardContent className="p-4"><div className="h-20 bg-muted rounded" /></CardContent></Card>
+   352→                ))}
+   353→              </div>
+   354→            ) : promos.length === 0 ? (
+   355→              <Card>
+   356→                <CardContent className="py-12 text-center">
+   357→                  <Tag className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+   358→                  <p className="text-muted-foreground">Aucune promo disponible dans votre zone</p>
+   359→                  <p className="text-xs text-muted-foreground mt-1">
+   360→                    Essayez d'élargir le rayon de recherche
+   361→                  </p>
+   362→                </CardContent>
+   363→              </Card>
+   364→            ) : (
+   365→              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+   366→                <AnimatePresence>
+   367→                  {promos.map((promo, i) => (
+   368→                    <motion.div
+   369→                      key={promo.id}
+   370→                      initial={{ opacity: 0, y: 10 }}
+   371→                      animate={{ opacity: 1, y: 0 }}
+   372→                      transition={{ delay: i * 0.05 }}
+   373→                    >
+   374→                      <Card
+   375→                        className={`cursor-pointer hover:shadow-md transition-shadow ${
+   376→                          promo.isFlashSale ? 'border-orange-300 bg-orange-50/50' : ''
+   377→                        } ${promo.matchScore > 0 ? 'ring-2 ring-emerald-400' : ''}`}
+   378→                        onClick={() => setSelectedPromo(promo)}
+   379→                      >
+   380→                        <CardContent className="p-4">
+   381→                          <div className="flex items-start justify-between gap-2">
+   382→                            <div className="flex-1 min-w-0">
+   383→                              <div className="flex items-center gap-1.5 mb-1">
+   384→                                {promo.isFlashSale && (
+   385→                                  <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+   386→                                    <Zap className="h-3 w-3 mr-0.5" /> Flash
+   387→                                  </Badge>
+   388→                                )}
+   389→                                {promo.source === 'scraped' && (
+   390→                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+   391→                                    {promo.category || 'Scrapé'}
+   392→                                  </Badge>
+   393→                                )}
+   394→                                {promo.matchScore > 0 && (
+   395→                                  <Badge className="text-[10px] px-1.5 py-0 bg-emerald-100 text-emerald-700">
+   396→                                    <ShoppingCart className="h-3 w-3 mr-0.5" />
+   397→                                    {promo.matchScore} match
+   398→                                  </Badge>
+   399→                                )}
+   400→                              </div>
+   401→                              <h3 className="font-semibold text-sm truncate">{promo.title}</h3>
+   402→                              {promo.merchantName && (
+   403→                                <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+   404→                                  <Store className="h-3 w-3" />
+   405→                                  {promo.merchantName}
+   406→                                </p>
+   407→                              )}
+   408→                            </div>
+   409→                            {promo.discountPct > 0 && (
+   410→                              <div className="flex-shrink-0 text-right">
+   411→                                <div className="text-lg font-bold text-red-600">-{promo.discountPct}%</div>
+   412→                                {promo.promoPrice != null && promo.originalPrice != null && (
+   413→                                  <div className="text-xs text-muted-foreground line-through">
+   414→                                    {promo.originalPrice.toFixed(2)}€
+   415→                                  </div>
+   416→                                )}
+   417→                                {promo.promoPrice != null && (
+   418→                                  <div className="text-sm font-semibold text-emerald-600">
+   419→                                    {promo.promoPrice.toFixed(2)}€
+   420→                                  </div>
+   421→                                )}
+   422→                              </div>
+   423→                            )}
+   424→                          </div>
+   425→                          <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
+   426→                            <span className="flex items-center gap-1">
+   427→                              <MapPin className="h-3 w-3" />
+   428→                              {promo.distanceText || 'En ligne'}
+   429→                            </span>
+   430→                            <span className="flex items-center gap-1">
+   431→                              <Clock className="h-3 w-3" />
+   432→                              {promo.validUntil
+   433→                                ? `Jusqu'au ${new Date(promo.validUntil).toLocaleDateString('fr-FR')}`
+   434→                                : 'En cours'
+   435→                              }
+   436→                            </span>
+   437→                          </div>
+   438→                        </CardContent>
+   439→                      </Card>
+   440→                    </motion.div>
+   441→                  ))}
+   442→                </AnimatePresence>
+   443→              </div>
+   444→            )}
+   445→          </motion.div>
+   446→        )}
+   447→
+   448→        {tab === 'merchants' && (
+   449→          <motion.div key="merchants" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+   450→            {loading ? (
+   451→              <div className="space-y-3">
+   452→                {Array.from({ length: 3 }).map((_, i) => (
+   453→                  <Card key={i} className="animate-pulse"><CardContent className="p-4"><div className="h-16 bg-muted rounded" /></CardContent></Card>
+   454→                ))}
+   455→              </div>
+   456→            ) : merchants.length === 0 ? (
+   457→              <Card>
+   458→                <CardContent className="py-12 text-center">
+   459→                  <Store className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+   460→                  <p className="text-muted-foreground">Aucun commerçant dans votre zone</p>
+   461→                </CardContent>
+   462→              </Card>
+   463→            ) : (
+   464→              <ScrollArea className="max-h-[500px]">
+   465→                <div className="space-y-3">
+   466→                  <AnimatePresence>
+   467→                    {merchants.map((merchant, i) => (
+   468→                      <motion.div
+   469→                        key={merchant.id}
+   470→                        initial={{ opacity: 0, x: -10 }}
+   471→                        animate={{ opacity: 1, x: 0 }}
+   472→                        transition={{ delay: i * 0.05 }}
+   473→                      >
+   474→                        <Card
+   475→                          className="cursor-pointer hover:shadow-md transition-shadow"
+   476→                          onClick={() => setSelectedMerchant(merchant)}
+   477→                        >
+   478→                          <CardContent className="p-4">
+   479→                            <div className="flex items-center gap-3">
+   480→                              <div className={`h-10 w-10 rounded-lg flex items-center justify-center text-white font-bold ${
+   481→                                merchant.subscriptionTier === 'featured' ? 'bg-purple-500' :
+   482→                                merchant.subscriptionTier === 'premium' ? 'bg-amber-500' : 'bg-emerald-500'
+   483→                              }`}>
+   484→                                {merchant.name.charAt(0).toUpperCase()}
+   485→                              </div>
+   486→                              <div className="flex-1 min-w-0">
+   487→                                <div className="flex items-center gap-1.5">
+   488→                                  <h3 className="font-semibold text-sm truncate">{merchant.name}</h3>
+   489→                                  {merchant.subscriptionTier !== 'free' && (
+   490→                                    <Badge variant="outline" className="text-[10px]">
+   491→                                      {merchant.subscriptionTier === 'featured' ? '⭐ Vedette' : '💎 Premium'}
+   492→                                    </Badge>
+   493→                                  )}
+   494→                                </div>
+   495→                                <p className="text-xs text-muted-foreground">
+   496→                                  {MERCHANT_CATEGORY_LABELS[merchant.category as MerchantCategory] || merchant.category}
+   497→                                  {merchant.address ? ` · ${merchant.address}` : ''}
+   498→                                </p>
+   499→                              </div>
+   500→                              <div className="text-right flex-shrink-0">
+   501→                                <p className="text-sm font-medium text-emerald-600">{merchant.distanceText}</p>
+   502→                                <p className="text-xs text-muted-foreground">
+   503→                                  {merchant._count.promos} promo{merchant._count.promos > 1 ? 's' : ''}
+   504→                                </p>
+   505→                              </div>
+   506→                            </div>
+   507→                          </CardContent>
+   508→                        </Card>
+   509→                      </motion.div>
+   510→                    ))}
+   511→                  </AnimatePresence>
+   512→                </div>
+   513→              </ScrollArea>
+   514→            )}
+   515→          </motion.div>
+   516→        )}
+   517→      </AnimatePresence>
+   518→
+   519→      {/* Merchant Detail Modal */}
+   520→      <AnimatePresence>
+   521→        {selectedMerchant && (
+   522→          <motion.div
+   523→            initial={{ opacity: 0 }}
+   524→            animate={{ opacity: 1 }}
+   525→            exit={{ opacity: 0 }}
+   526→            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+   527→            onClick={() => setSelectedMerchant(null)}
+   528→          >
+   529→            <motion.div
+   530→              initial={{ scale: 0.95, opacity: 0 }}
+   531→              animate={{ scale: 1, opacity: 1 }}
+   532→              exit={{ scale: 0.95, opacity: 0 }}
+   533→              className="bg-white rounded-xl max-w-md w-full max-h-[80vh] overflow-y-auto"
+   534→              onClick={(e) => e.stopPropagation()}
+   535→            >
+   536→              <div className="p-6">
+   537→                <div className="flex items-start justify-between">
+   538→                  <div className="flex items-center gap-3">
+   539→                    <div className={`h-12 w-12 rounded-xl flex items-center justify-center text-white font-bold text-lg ${
+   540→                      selectedMerchant.subscriptionTier === 'featured' ? 'bg-purple-500' :
+   541→                      selectedMerchant.subscriptionTier === 'premium' ? 'bg-amber-500' : 'bg-emerald-500'
+   542→                    }`}>
+   543→                      {selectedMerchant.name.charAt(0).toUpperCase()}
+   544→                    </div>
+   545→                    <div>
+   546→                      <h3 className="font-bold text-lg">{selectedMerchant.name}</h3>
+   547→                      <p className="text-sm text-muted-foreground">
+   548→                        {MERCHANT_CATEGORY_LABELS[selectedMerchant.category as MerchantCategory]}
+   549→                      </p>
+   550→                    </div>
+   551→                  </div>
+   552→                  <Button variant="ghost" size="icon" onClick={() => setSelectedMerchant(null)}>
+   553→                    <X className="h-4 w-4" />
+   554→                  </Button>
+   555→                </div>
+   556→                {selectedMerchant.description && (
+   557→                  <p className="text-sm text-muted-foreground mt-3">{selectedMerchant.description}</p>
+   558→                )}
+   559→                <Separator className="my-3" />
+   560→                <div className="space-y-2 text-sm">
+   561→                  {selectedMerchant.address && (
+   562→                    <div className="flex items-center gap-2 text-muted-foreground">
+   563→                      <MapPin className="h-4 w-4" /> {selectedMerchant.address}
+   564→                    </div>
+   565→                  )}
+   566→                  {selectedMerchant.phone && (
+   567→                    <div className="flex items-center gap-2 text-muted-foreground">
+   568→                      📞 {selectedMerchant.phone}
+   569→                    </div>
+   570→                  )}
+   571→                  <div className="flex items-center gap-2 text-emerald-600 font-medium">
+   572→                    <Navigation className="h-4 w-4" /> {selectedMerchant.distanceText}
+   573→                  </div>
+   574→                </div>
+   575→                <div className="flex items-center gap-2 mt-4">
+   576→                  <Badge variant="secondary">{selectedMerchant._count.promos} promotions</Badge>
+   577→                  <Badge variant="secondary">{selectedMerchant._count.reviews} avis</Badge>
+   578→                </div>
+   579→              </div>
+   580→            </motion.div>
+   581→          </motion.div>
+   582→        )}
+   583→      </AnimatePresence>
+   584→
+   585→      {/* Promo Detail Modal */}
+   586→      <AnimatePresence>
+   587→        {selectedPromo && (
+   588→          <motion.div
+   589→            initial={{ opacity: 0 }}
+   590→            animate={{ opacity: 1 }}
+   591→            exit={{ opacity: 0 }}
+   592→            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+   593→            onClick={() => setSelectedPromo(null)}
+   594→          >
+   595→            <motion.div
+   596→              initial={{ scale: 0.95, opacity: 0 }}
+   597→              animate={{ scale: 1, opacity: 1 }}
+   598→              exit={{ scale: 0.95, opacity: 0 }}
+   599→              className="bg-white rounded-xl max-w-md w-full"
+   600→              onClick={(e) => e.stopPropagation()}
+   601→            >
+   602→              <div className="p-6">
+   603→                <div className="flex items-start justify-between">
+   604→                  <div className="flex-1">
+   605→                    {selectedPromo.isFlashSale && (
+   606→                      <Badge variant="destructive" className="mb-2"><Zap className="h-3 w-3 mr-1" /> Vente Flash</Badge>
+   607→                    )}
+   608→                    <h3 className="font-bold text-lg">{selectedPromo.title}</h3>
+   609→                  </div>
+   610→                  <Button variant="ghost" size="icon" onClick={() => setSelectedPromo(null)}>
+   611→                    <X className="h-4 w-4" />
+   612→                  </Button>
+   613→                </div>
+   614→                {selectedPromo.description && (
+   615→                  <p className="text-sm text-muted-foreground mt-2">{selectedPromo.description}</p>
+   616→                )}
+   617→                <Separator className="my-3" />
+   618→                <div className="flex items-end gap-3">
+   619→                  {selectedPromo.originalPrice != null && (
+   620→                    <span className="text-lg text-muted-foreground line-through">
+   621→                      {selectedPromo.originalPrice.toFixed(2)}€
+   622→                    </span>
+   623→                  )}
+   624→                  {selectedPromo.promoPrice != null && (
+   625→                    <span className="text-2xl font-bold text-emerald-600">
+   626→                      {selectedPromo.promoPrice.toFixed(2)}€
+   627→                    </span>
+   628→                  )}
+   629→                  {selectedPromo.discountPct > 0 && (
+   630→                    <Badge className="bg-red-100 text-red-700">-{selectedPromo.discountPct}%</Badge>
+   631→                  )}
+   632→                </div>
+   633→                {selectedPromo.merchantName && (
+   634→                  <p className="text-sm text-muted-foreground mt-2 flex items-center gap-1">
+   635→                    <Store className="h-3.5 w-3.5" /> {selectedPromo.merchantName}
+   636→                    {selectedPromo.distanceText && ` · ${selectedPromo.distanceText}`}
+   637→                  </p>
+   638→                )}
+   639→                <div className="flex items-center gap-2 mt-3 text-xs text-muted-foreground">
+   640→                  <Clock className="h-3 w-3" />
+   641→                  {selectedPromo.validUntil
+   642→                    ? `Valable jusqu'au ${new Date(selectedPromo.validUntil).toLocaleDateString('fr-FR')}`
+   643→                    : 'En cours'
+   644→                  }
+   645→                </div>
+   646→                {selectedPromo.matchScore > 0 && (
+   647→                  <div className="mt-2 p-2 bg-emerald-50 rounded-lg text-sm text-emerald-700">
+   648→                    <ShoppingCart className="h-3.5 w-3.5 inline mr-1" />
+   649→                    Correspond à {selectedPromo.matchScore} article{selectedPromo.matchScore > 1 ? 's' : ''} de votre liste de courses !
+   650→                  </div>
+   651→                )}
+   652→                {selectedPromo.merchantId && (
+   653→                  <Button
+   654→                    className="w-full mt-4"
+   655→                    onClick={() => redeemCoupon(selectedPromo.id, selectedPromo.merchantId!)}
+   656→                  >
+   657→                    <Tag className="h-4 w-4 mr-2" />
+   658→                    Valider ce coupon
+   659→                  </Button>
+   660→                )}
+   661→              </div>
+   662→            </motion.div>
+   663→          </motion.div>
+   664→        )}
+   665→      </AnimatePresence>
+   666→    </div>
+   667→  );
+   668→}
+   669→

@@ -1,0 +1,655 @@
+     1→'use client';
+     2→
+     3→import { useState, useMemo } from 'react';
+     4→import { toast } from 'sonner';
+     5→import { motion, AnimatePresence } from 'framer-motion';
+     6→import {
+     7→  Card, CardContent, CardDescription, CardHeader, CardTitle,
+     8→} from '@/components/ui/card';
+     9→import { Button } from '@/components/ui/button';
+    10→import { Input } from '@/components/ui/input';
+    11→import { Label } from '@/components/ui/label';
+    12→import { Textarea } from '@/components/ui/textarea';
+    13→import { Switch } from '@/components/ui/switch';
+    14→import { Slider } from '@/components/ui/slider';
+    15→import { Badge } from '@/components/ui/badge';
+    16→import {
+    17→  Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
+    18→} from '@/components/ui/select';
+    19→import {
+    20→  Briefcase, MapPin, Wrench, FileText, ChevronLeft, ChevronRight,
+    21→  Plus, Trash2, CheckCircle, Clock, ShieldCheck, ArrowLeft,
+    22→} from 'lucide-react';
+    23→import type { ProfessionalCategory, PriceUnit } from '@/types';
+    24→import {
+    25→  PROFESSIONAL_CATEGORY_GROUP, PROFESSIONAL_GROUP_LABELS, PRICE_UNIT_LABELS,
+    26→} from '@/types';
+    27→import { DEFAULT_MAP_CENTER } from '@/lib/constants';
+    28→
+    29→// ─── Types ──────────────────────────────────────────────────────
+    30→
+    31→interface ServiceForm {
+    32→  name: string;
+    33→  description: string;
+    34→  basePrice: string;
+    35→  priceUnit: PriceUnit;
+    36→  durationMinutes: string;
+    37→  isUrgent: boolean;
+    38→}
+    39→
+    40→interface DocUpload {
+    41→  type: string;
+    42→  url: string;
+    43→  status: string;
+    44→}
+    45→
+    46→// ─── Step Config ────────────────────────────────────────────────
+    47→
+    48→const STEPS = [
+    49→  { label: 'Informations', icon: Briefcase },
+    50→  { label: 'Localisation', icon: MapPin },
+    51→  { label: 'Services', icon: Wrench },
+    52→  { label: 'Documents', icon: FileText },
+    53→] as const;
+    54→
+    55→const DOC_TYPES = [
+    56→  { key: 'kbis', label: 'Extrait Kbis', placeholder: 'https://exemple.com/kbis.pdf' },
+    57→  { key: 'insurance', label: 'Attestation d\'assurance', placeholder: 'https://exemple.com/assurance.pdf' },
+    58→] as const;
+    59→
+    60→const MAX_SERVICES = 5;
+    61→
+    62→// ─── Component ──────────────────────────────────────────────────
+    63→
+    64→export function ArtisanRegistration({ onSuccess }: { onSuccess?: () => void }) {
+    65→  const [step, setStep] = useState(0);
+    66→  const [submitting, setSubmitting] = useState(false);
+    67→  const [success, setSuccess] = useState(false);
+    68→
+    69→  // Step 1: Basic info
+    70→  const [businessName, setBusinessName] = useState('');
+    71→  const [category, setCategory] = useState<ProfessionalCategory | ''>('');
+    72→  const [description, setDescription] = useState('');
+    73→
+    74→  // Step 2: Location
+    75→  const [address, setAddress] = useState('');
+    76→  const [latitude, setLatitude] = useState(String(DEFAULT_MAP_CENTER.latitude));
+    77→  const [longitude, setLongitude] = useState(String(DEFAULT_MAP_CENTER.longitude));
+    78→  const [serviceRadiusKm, setServiceRadiusKm] = useState(10);
+    79→  const [isUrgentAvailable, setIsUrgentAvailable] = useState(false);
+    80→
+    81→  // Step 3: Services
+    82→  const [services, setServices] = useState<ServiceForm[]>([
+    83→    { name: '', description: '', basePrice: '', priceUnit: 'hour', durationMinutes: '60', isUrgent: false },
+    84→  ]);
+    85→
+    86→  // Step 4: Documents
+    87→  const [docs, setDocs] = useState<DocUpload[]>([]);
+    88→  const [portfolioUrls, setPortfolioUrls] = useState<string[]>(['']);
+    89→
+    90→  // ─── Grouped categories ─────────────────────────────────────
+    91→
+    92→  const groupedCategories = useMemo(() => {
+    93→    const groups: Record<string, { key: ProfessionalCategory; label: string }[]> = {};
+    94→    for (const [key, info] of Object.entries(PROFESSIONAL_CATEGORY_GROUP) as [ProfessionalCategory, { group: string; label: string; icon: string }][]) {
+    95→      if (!groups[info.group]) groups[info.group] = [];
+    96→      groups[info.group].push({ key, label: info.label });
+    97→    }
+    98→    return groups;
+    99→  }, []);
+   100→
+   101→  // ─── Service management ─────────────────────────────────────
+   102→
+   103→  const addService = () => {
+   104→    if (services.length >= MAX_SERVICES) {
+   105→      toast.error(`Maximum ${MAX_SERVICES} services autorisés`);
+   106→      return;
+   107→    }
+   108→    setServices([...services, { name: '', description: '', basePrice: '', priceUnit: 'hour', durationMinutes: '60', isUrgent: false }]);
+   109→  };
+   110→
+   111→  const removeService = (index: number) => {
+   112→    if (services.length <= 1) return;
+   113→    setServices(services.filter((_, i) => i !== index));
+   114→  };
+   115→
+   116→  const updateService = (index: number, field: keyof ServiceForm, value: string | boolean) => {
+   117→    const updated = [...services];
+   118→    updated[index] = { ...updated[index], [field]: value };
+   119→    setServices(updated);
+   120→  };
+   121→
+   122→  // ─── Document management ────────────────────────────────────
+   123→
+   124→  const addDocUrl = (type: string, url: string) => {
+   125→    if (!url.trim()) return;
+   126→    setDocs([...docs, { type, url: url.trim(), status: 'pending' }]);
+   127→  };
+   128→
+   129→  const removeDoc = (index: number) => {
+   130→    setDocs(docs.filter((_, i) => i !== index));
+   131→  };
+   132→
+   133→  const addPortfolioUrl = () => {
+   134→    if (portfolioUrls.length >= 5) {
+   135→      toast.error('Maximum 5 photos de portfolio');
+   136→      return;
+   137→    }
+   138→    setPortfolioUrls([...portfolioUrls, '']);
+   139→  };
+   140→
+   141→  const updatePortfolioUrl = (index: number, value: string) => {
+   142→    const updated = [...portfolioUrls];
+   143→    updated[index] = value;
+   144→    setPortfolioUrls(updated);
+   145→  };
+   146→
+   147→  const removePortfolioUrl = (index: number) => {
+   148→    if (portfolioUrls.length <= 1) return;
+   149→    setPortfolioUrls(portfolioUrls.filter((_, i) => i !== index));
+   150→  };
+   151→
+   152→  // ─── Validation ─────────────────────────────────────────────
+   153→
+   154→  const canProceed = (): boolean => {
+   155→    switch (step) {
+   156→      case 0: return !!(businessName.trim() && category);
+   157→      case 1: return !!(latitude && longitude && !isNaN(Number(latitude)) && !isNaN(Number(longitude)));
+   158→      case 2: return services.some(s => s.name.trim() && s.basePrice);
+   159→      case 3: return true; // docs optional
+   160→      default: return false;
+   161→    }
+   162→  };
+   163→
+   164→  // ─── Submit ─────────────────────────────────────────────────
+   165→
+   166→  const handleSubmit = async () => {
+   167→    setSubmitting(true);
+   168→    try {
+   169→      // 1. Create professional
+   170→      const proRes = await fetch('/api/professionals', {
+   171→        method: 'POST',
+   172→        headers: { 'Content-Type': 'application/json' },
+   173→        body: JSON.stringify({
+   174→          userId: 'demo-user',
+   175→          businessName: businessName.trim(),
+   176→          category,
+   177→          description: description.trim(),
+   178→          address: address.trim(),
+   179→          latitude: parseFloat(latitude),
+   180→          longitude: parseFloat(longitude),
+   181→          serviceRadiusKm,
+   182→          availableForUrgency: isUrgentAvailable,
+   183→          verificationDocsJson: JSON.stringify(docs),
+   184→          portfolioImagesJson: JSON.stringify(portfolioUrls.filter(u => u.trim())),
+   185→        }),
+   186→      });
+   187→
+   188→      const proJson = await proRes.json();
+   189→      if (!proJson.success) {
+   190→        toast.error(proJson.error || 'Erreur lors de la création du profil');
+   191→        setSubmitting(false);
+   192→        return;
+   193→      }
+   194→
+   195→      const professionalId = proJson.data.id;
+   196→
+   197→      // 2. Create services
+   198→      for (const svc of services) {
+   199→        if (!svc.name.trim() || !svc.basePrice) continue;
+   200→        await fetch('/api/services', {
+   201→          method: 'POST',
+   202→          headers: { 'Content-Type': 'application/json' },
+   203→          body: JSON.stringify({
+   204→            professionalId,
+   205→            name: svc.name.trim(),
+   206→            description: svc.description.trim(),
+   207→            price: parseFloat(svc.basePrice) || 0,
+   208→            priceUnit: svc.priceUnit,
+   209→            minDurationMinutes: parseInt(svc.durationMinutes) || 60,
+   210→            isUrgent: svc.isUrgent,
+   211→          }),
+   212→        });
+   213→      }
+   214→
+   215→      setSuccess(true);
+   216→      toast.success('Inscription envoyée avec succès !');
+   217→      onSuccess?.();
+   218→    } catch {
+   219→      toast.error('Erreur réseau. Veuillez réessayer.');
+   220→    } finally {
+   221→      setSubmitting(false);
+   222→    }
+   223→  };
+   224→
+   225→  // ─── Success State ──────────────────────────────────────────
+   226→
+   227→  if (success) {
+   228→    return (
+   229→      <div className="max-w-md mx-auto">
+   230→        <motion.div
+   231→          initial={{ opacity: 0, scale: 0.95 }}
+   232→          animate={{ opacity: 1, scale: 1 }}
+   233→          className="text-center py-12"
+   234→        >
+   235→          <div className="mx-auto w-20 h-20 rounded-full bg-blue-100 flex items-center justify-center mb-6">
+   236→            <CheckCircle className="h-10 w-10 text-blue-600" />
+   237→          </div>
+   238→          <h2 className="text-2xl font-bold text-slate-900 mb-2">Inscription envoyée !</h2>
+   239→          <p className="text-slate-500 mb-6">
+   240→            Votre profil artisan a été créé avec succès.
+   241→          </p>
+   242→          <Card className="border-amber-200 bg-amber-50">
+   243→            <CardContent className="p-4">
+   244→              <div className="flex items-center gap-2 text-amber-800">
+   245→                <Clock className="h-5 w-5 flex-shrink-0" />
+   246→                <p className="text-sm font-medium">
+   247→                  En attente de vérification
+   248→                </p>
+   249→              </div>
+   250→              <p className="text-xs text-amber-600 mt-1">
+   251→                Nos équipes examinent vos documents. Vous recevrez une notification dès validation.
+   252→              </p>
+   253→            </CardContent>
+   254→          </Card>
+   255→        </motion.div>
+   256→      </div>
+   257→    );
+   258→  }
+   259→
+   260→  // ─── Render ─────────────────────────────────────────────────
+   261→
+   262→  return (
+   263→    <div className="max-w-md mx-auto">
+   264→      {/* Back button + Title */}
+   265→      <div className="mb-6">
+   266→        <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+   267→          <Briefcase className="h-5 w-5 text-blue-600" />
+   268→          Devenir Artisan Partenaire
+   269→        </h2>
+   270→        <p className="text-sm text-slate-500 mt-1">
+   271→          Créez votre profil en 4 étapes simples
+   272→        </p>
+   273→      </div>
+   274→
+   275→      {/* Step Indicator */}
+   276→      <div className="flex items-center gap-1 mb-6">
+   277→        {STEPS.map((s, i) => {
+   278→          const Icon = s.icon;
+   279→          const isActive = i === step;
+   280→          const isDone = i < step;
+   281→          return (
+   282→            <div key={i} className="flex-1 flex flex-col items-center gap-1">
+   283→              <div
+   284→                className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors text-sm font-semibold ${
+   285→                  isDone
+   286→                    ? 'bg-blue-600 text-white'
+   287→                    : isActive
+   288→                      ? 'bg-blue-100 text-blue-700 ring-2 ring-blue-600'
+   289→                      : 'bg-slate-100 text-slate-400'
+   290→                }`}
+   291→              >
+   292→                {isDone ? <CheckCircle className="h-5 w-5" /> : <Icon className="h-4 w-4" />}
+   293→              </div>
+   294→              <span className={`text-[11px] font-medium hidden sm:block ${
+   295→                isActive ? 'text-blue-700' : isDone ? 'text-blue-600' : 'text-slate-400'
+   296→              }`}>
+   297→                {s.label}
+   298→              </span>
+   299→              <span className={`text-[10px] font-bold sm:hidden ${
+   300→                isActive ? 'text-blue-700' : 'text-slate-400'
+   301→              }`}>{i + 1}/4</span>
+   302→            </div>
+   303→          );
+   304→        })}
+   305→      </div>
+   306→
+   307→      {/* Step Content */}
+   308→      <AnimatePresence mode="wait">
+   309→        <motion.div
+   310→          key={step}
+   311→          initial={{ opacity: 0, x: 20 }}
+   312→          animate={{ opacity: 1, x: 0 }}
+   313→          exit={{ opacity: 0, x: -20 }}
+   314→          transition={{ duration: 0.2 }}
+   315→        >
+   316→          <Card className="border-slate-200">
+   317→            <CardHeader className="pb-3">
+   318→              <CardTitle className="text-base">Étape {step + 1} : {STEPS[step].label}</CardTitle>
+   319→              <CardDescription className="text-xs">
+   320→                {step === 0 && 'Informations de base de votre entreprise'}
+   321→                {step === 1 && 'Votre zone d\'intervention'}
+   322→                {step === 2 && 'Les services que vous proposez'}
+   323→                {step === 3 && 'Documents de vérification (optionnel)'}
+   324→              </CardDescription>
+   325→            </CardHeader>
+   326→            <CardContent className="space-y-4">
+   327→              {/* ─── STEP 1: Basic Info ─── */}
+   328→              {step === 0 && (
+   329→                <>
+   330→                  <div className="space-y-2">
+   331→                    <Label htmlFor="businessName">Nom de l\'entreprise *</Label>
+   332→                    <Input
+   333→                      id="businessName"
+   334→                      placeholder="ABC Plomberie"
+   335→                      value={businessName}
+   336→                      onChange={(e) => setBusinessName(e.target.value)}
+   337→                    />
+   338→                  </div>
+   339→                  <div className="space-y-2">
+   340→                    <Label htmlFor="category">Catégorie *</Label>
+   341→                    <Select value={category} onValueChange={(v) => setCategory(v as ProfessionalCategory)}>
+   342→                      <SelectTrigger id="category">
+   343→                        <SelectValue placeholder="Choisir une catégorie..." />
+   344→                      </SelectTrigger>
+   345→                      <SelectContent>
+   346→                        {Object.entries(groupedCategories).map(([group, cats]) => (
+   347→                          <SelectGroup key={group}>
+   348→                            <SelectLabel className="text-xs font-semibold text-slate-500">
+   349→                              {PROFESSIONAL_GROUP_LABELS[group] || group}
+   350→                            </SelectLabel>
+   351→                            {cats.map((cat) => (
+   352→                              <SelectItem key={cat.key} value={cat.key}>
+   353→                                {cat.label}
+   354→                              </SelectItem>
+   355→                            ))}
+   356→                          </SelectGroup>
+   357→                        ))}
+   358→                      </SelectContent>
+   359→                    </Select>
+   360→                  </div>
+   361→                  <div className="space-y-2">
+   362→                    <Label htmlFor="description">Description</Label>
+   363→                    <Textarea
+   364→                      id="description"
+   365→                      placeholder="Décrivez votre activité, votre expérience..."
+   366→                      rows={4}
+   367→                      value={description}
+   368→                      onChange={(e) => setDescription(e.target.value)}
+   369→                    />
+   370→                  </div>
+   371→                </>
+   372→              )}
+   373→
+   374→              {/* ─── STEP 2: Location ─── */}
+   375→              {step === 1 && (
+   376→                <>
+   377→                  <div className="space-y-2">
+   378→                    <Label htmlFor="address">Adresse</Label>
+   379→                    <Input
+   380→                      id="address"
+   381→                      placeholder="Dakar, Médina, Rue 10"
+   382→                      value={address}
+   383→                      onChange={(e) => setAddress(e.target.value)}
+   384→                    />
+   385→                  </div>
+   386→                  <div className="grid grid-cols-2 gap-3">
+   387→                    <div className="space-y-2">
+   388→                      <Label htmlFor="latitude">Latitude *</Label>
+   389→                      <Input
+   390→                        id="latitude"
+   391→                        type="number"
+   392→                        step="0.0001"
+   393→                        placeholder="14.6937"
+   394→                        value={latitude}
+   395→                        onChange={(e) => setLatitude(e.target.value)}
+   396→                      />
+   397→                    </div>
+   398→                    <div className="space-y-2">
+   399→                      <Label htmlFor="longitude">Longitude *</Label>
+   400→                      <Input
+   401→                        id="longitude"
+   402→                        type="number"
+   403→                        step="0.0001"
+   404→                        placeholder="-17.4441"
+   405→                        value={longitude}
+   406→                        onChange={(e) => setLongitude(e.target.value)}
+   407→                      />
+   408→                    </div>
+   409→                  </div>
+   410→                  <div className="space-y-3">
+   411→                    <div className="flex items-center justify-between">
+   412→                      <Label>Rayon d\'intervention</Label>
+   413→                      <Badge variant="secondary" className="text-blue-700 bg-blue-50">
+   414→                        {serviceRadiusKm} km
+   415→                      </Badge>
+   416→                    </div>
+   417→                    <Slider
+   418→                      value={[serviceRadiusKm]}
+   419→                      onValueChange={([v]) => setServiceRadiusKm(v)}
+   420→                      min={1}
+   421→                      max={50}
+   422→                      step={1}
+   423→                      className="[&_[role=slider]]:bg-blue-600"
+   424→                    />
+   425→                    <div className="flex justify-between text-[10px] text-slate-400">
+   426→                      <span>1 km</span>
+   427→                      <span>50 km</span>
+   428→                    </div>
+   429→                  </div>
+   430→                  <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-200">
+   431→                    <div>
+   432→                      <Label className="text-sm font-medium">Disponible pour urgences</Label>
+   433→                      <p className="text-xs text-slate-500">Interventions rapides 24/7</p>
+   434→                    </div>
+   435→                    <Switch checked={isUrgentAvailable} onCheckedChange={setIsUrgentAvailable} />
+   436→                  </div>
+   437→                </>
+   438→              )}
+   439→
+   440→              {/* ─── STEP 3: Services ─── */}
+   441→              {step === 2 && (
+   442→                <>
+   443→                  <div className="space-y-3">
+   444→                    {services.map((svc, i) => (
+   445→                      <div key={i} className="p-3 rounded-lg border border-slate-200 space-y-3">
+   446→                        <div className="flex items-center justify-between">
+   447→                          <span className="text-sm font-semibold text-slate-700">Service {i + 1}</span>
+   448→                          {services.length > 1 && (
+   449→                            <Button
+   450→                              variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-red-500"
+   451→                              onClick={() => removeService(i)}
+   452→                            >
+   453→                              <Trash2 className="h-4 w-4" />
+   454→                            </Button>
+   455→                          )}
+   456→                        </div>
+   457→                        <Input
+   458→                          placeholder="Nom du service (ex: Débouchage canalisation)"
+   459→                          value={svc.name}
+   460→                          onChange={(e) => updateService(i, 'name', e.target.value)}
+   461→                        />
+   462→                        <Textarea
+   463→                          placeholder="Description du service..."
+   464→                          rows={2}
+   465→                          value={svc.description}
+   466→                          onChange={(e) => updateService(i, 'description', e.target.value)}
+   467→                        />
+   468→                        <div className="grid grid-cols-3 gap-2">
+   469→                          <div className="space-y-1">
+   470→                            <Label className="text-[11px]">Prix</Label>
+   471→                            <Input
+   472→                              type="number" step="0.01"
+   473→                              placeholder="0.00"
+   474→                              value={svc.basePrice}
+   475→                              onChange={(e) => updateService(i, 'basePrice', e.target.value)}
+   476→                            />
+   477→                          </div>
+   478→                          <div className="space-y-1">
+   479→                            <Label className="text-[11px]">Unité</Label>
+   480→                            <Select
+   481→                              value={svc.priceUnit}
+   482→                              onValueChange={(v) => updateService(i, 'priceUnit', v)}
+   483→                            >
+   484→                              <SelectTrigger className="h-9">
+   485→                                <SelectValue />
+   486→                              </SelectTrigger>
+   487→                              <SelectContent>
+   488→                                {(Object.entries(PRICE_UNIT_LABELS) as [PriceUnit, string][]).map(([k, label]) => (
+   489→                                  <SelectItem key={k} value={k}>{label}</SelectItem>
+   490→                                ))}
+   491→                              </SelectContent>
+   492→                            </Select>
+   493→                          </div>
+   494→                          <div className="space-y-1">
+   495→                            <Label className="text-[11px]">Durée (min)</Label>
+   496→                            <Input
+   497→                              type="number"
+   498→                            placeholder="60"
+   499→                            value={svc.durationMinutes}
+   500→                            onChange={(e) => updateService(i, 'durationMinutes', e.target.value)}
+   501→                          />
+   502→                          </div>
+   503→                        </div>
+   504→                        <div className="flex items-center justify-between">
+   505→                          <span className="text-xs text-slate-500">Service urgent disponible</span>
+   506→                          <Switch
+   507→                            checked={svc.isUrgent}
+   508→                            onCheckedChange={(v) => updateService(i, 'isUrgent', v)}
+   509→                          />
+   510→                        </div>
+   511→                      </div>
+   512→                    ))}
+   513→                  </div>
+   514→                  {services.length < MAX_SERVICES && (
+   515→                    <Button
+   516→                      variant="outline" size="sm" className="w-full border-dashed"
+   517→                      onClick={addService}
+   518→                    >
+   519→                      <Plus className="h-4 w-4 mr-1" />
+   520→                      Ajouter un service ({services.length}/{MAX_SERVICES})
+   521→                    </Button>
+   522→                  )}
+   523→                </>
+   524→              )}
+   525→
+   526→              {/* ─── STEP 4: Documents ─── */}
+   527→              {step === 3 && (
+   528→                <>
+   529→                  <div className="space-y-3">
+   530→                    <p className="text-xs text-slate-500">
+   531→                      Ajoutez les URL de vos documents de vérification pour accélérer le processus.
+   532→                    </p>
+   533→
+   534→                    {DOC_TYPES.map((docType) => {
+   535→                      const [url, setUrl] = useState('');
+   536→                      return (
+   537→                        <div key={docType.key} className="space-y-1.5">
+   538→                          <Label className="text-sm">{docType.label}</Label>
+   539→                          <div className="flex gap-2">
+   540→                            <Input
+   541→                              placeholder={docType.placeholder}
+   542→                              value={url}
+   543→                              onChange={(e) => setUrl(e.target.value)}
+   544→                            />
+   545→                            <Button
+   546→                              variant="outline" size="sm"
+   547→                              className="flex-shrink-0"
+   548→                              disabled={!url.trim()}
+   549→                              onClick={() => {
+   550→                                addDocUrl(docType.key, url);
+   551→                                setUrl('');
+   552→                              }}
+   553→                            >
+   554→                              <Plus className="h-4 w-4" />
+   555→                            </Button>
+   556→                          </div>
+   557→                        </div>
+   558→                      );
+   559→                    })}
+   560→
+   561→                    {/* Added docs list */}
+   562→                    {docs.length > 0 && (
+   563→                      <div className="space-y-2">
+   564→                        <Label className="text-xs text-slate-500">Documents ajoutés</Label>
+   565→                        {docs.map((doc, i) => (
+   566→                          <div key={i} className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg text-sm">
+   567→                            <ShieldCheck className="h-4 w-4 text-blue-500 flex-shrink-0" />
+   568→                            <span className="flex-1 truncate text-slate-700">
+   569→                              {DOC_TYPES.find(d => d.key === doc.type)?.label || doc.type}
+   570→                            </span>
+   571→                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeDoc(i)}>
+   572→                              <Trash2 className="h-3 w-3 text-slate-400" />
+   573→                            </Button>
+   574→                          </div>
+   575→                        ))}
+   576→                      </div>
+   577→                    )}
+   578→
+   579→                    {/* Portfolio images */}
+   580→                    <div className="space-y-2 mt-4">
+   581→                      <Label className="text-sm">Photos de portfolio</Label>
+   582→                      {portfolioUrls.map((pUrl, i) => (
+   583→                        <div key={i} className="flex gap-2">
+   584→                          <Input
+   585→                            placeholder="URL de l\'image"
+   586→                            value={pUrl}
+   587→                            onChange={(e) => updatePortfolioUrl(i, e.target.value)}
+   588→                          />
+   589→                          {portfolioUrls.length > 1 && (
+   590→                            <Button variant="ghost" size="icon" className="h-9 w-9 flex-shrink-0" onClick={() => removePortfolioUrl(i)}>
+   591→                              <Trash2 className="h-4 w-4 text-slate-400" />
+   592→                            </Button>
+   593→                          )}
+   594→                        </div>
+   595→                      ))}
+   596→                      {portfolioUrls.length < 5 && (
+   597→                        <Button variant="ghost" size="sm" onClick={addPortfolioUrl}>
+   598→                          <Plus className="h-3 w-3 mr-1" /> Ajouter une photo
+   599→                        </Button>
+   600→                      )}
+   601→                    </div>
+   602→                  </div>
+   603→                </>
+   604→              )}
+   605→
+   606→              {/* ─── Navigation ─── */}
+   607→              <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+   608→                <Button
+   609→                  variant="ghost" size="sm"
+   610→                  onClick={() => setStep(Math.max(0, step - 1))}
+   611→                  disabled={step === 0}
+   612→                >
+   613→                  <ChevronLeft className="h-4 w-4 mr-1" />
+   614→                  Retour
+   615→                </Button>
+   616→
+   617→                {step < STEPS.length - 1 ? (
+   618→                  <Button
+   619→                    size="sm"
+   620→                    disabled={!canProceed()}
+   621→                    onClick={() => setStep(step + 1)}
+   622→                    className="bg-blue-600 hover:bg-blue-700"
+   623→                  >
+   624→                    Suivant
+   625→                    <ChevronRight className="h-4 w-4 ml-1" />
+   626→                  </Button>
+   627→                ) : (
+   628→                  <Button
+   629→                    size="sm"
+   630→                    disabled={submitting}
+   631→                    onClick={handleSubmit}
+   632→                    className="bg-blue-600 hover:bg-blue-700"
+   633→                  >
+   634→                    {submitting ? (
+   635→                      <span className="flex items-center gap-1">
+   636→                        <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+   637→                        Envoi...
+   638→                      </span>
+   639→                    ) : (
+   640→                      <span className="flex items-center gap-1">
+   641→                        <CheckCircle className="h-4 w-4" />
+   642→                        Valider l\'inscription
+   643→                      </span>
+   644→                    )}
+   645→                  </Button>
+   646→                )}
+   647→              </div>
+   648→            </CardContent>
+   649→          </Card>
+   650→        </motion.div>
+   651→      </AnimatePresence>
+   652→    </div>
+   653→  );
+   654→}
+   655→

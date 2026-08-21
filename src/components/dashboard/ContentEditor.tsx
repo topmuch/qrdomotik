@@ -8,7 +8,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Plus, Trash2, Package } from 'lucide-react';
-import { PRODUCT_CATEGORY_LABELS, type QrType } from '@/types';
+import { PRODUCT_CATEGORY_LABELS, EMERGENCY_CATEGORY_LABELS, type QrType, type EmergencyCategory } from '@/types';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface ContentEditorProps {
   qrId: string;
@@ -641,6 +642,128 @@ function DeepCleaningEditor({ content, onChange }: { content: any; onChange: (c:
 }
 
 // ═══════════════════════════════════════════════════════════════
+// EMERGENCY SERVICE EDITOR (V3)
+// ═══════════════════════════════════════════════════════════════
+function EmergencyServiceEditor({ content, onChange }: { content: any; onChange: (c: any) => void }) {
+  const categories = Object.entries(EMERGENCY_CATEGORY_LABELS) as [EmergencyCategory, string][];
+  const equipmentInfo = content.equipmentInfo || {};
+
+  const updateEquipmentField = (key: string, value: string) => {
+    onChange({ ...content, equipmentInfo: { ...equipmentInfo, [key]: value } });
+  };
+
+  const removeEquipmentField = (key: string) => {
+    const updated = { ...equipmentInfo };
+    delete updated[key];
+    onChange({ ...content, equipmentInfo: updated });
+  };
+
+  const [newFieldKey, setNewFieldKey] = useState('');
+  const [newFieldValue, setNewFieldValue] = useState('');
+
+  const addEquipmentField = () => {
+    if (!newFieldKey.trim()) return;
+    onChange({ ...content, equipmentInfo: { ...equipmentInfo, [newFieldKey.trim()]: newFieldValue.trim() } });
+    setNewFieldKey('');
+    setNewFieldValue('');
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label>Catégorie d&apos;urgence</Label>
+        <Select value={content.emergencyCategory || 'plumber'} onValueChange={(v) => onChange({ ...content, emergencyCategory: v })}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {categories.map(([value, label]) => (
+              <SelectItem key={value} value={value}>{label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">Le QR d&apos;urgence affichera les artisans disponibles pour cette catégorie.</p>
+      </div>
+
+      <div className="space-y-2">
+        <Label>Informations sur l&apos;équipement</Label>
+        <p className="text-xs text-muted-foreground">Ces infos seront transmises à l&apos;artisan lors de l&apos;appel d&apos;urgence.</p>
+        <div className="space-y-2">
+          {Object.entries(equipmentInfo).map(([key, value]) => (
+            <div key={key} className="flex items-center gap-2">
+              <span className="text-sm font-medium min-w-[100px] bg-slate-100 rounded px-2 py-1">{key}</span>
+              <Input value={value as string} onChange={(e) => updateEquipmentField(key, e.target.value)} className="h-8 flex-1 text-sm" />
+              <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => removeEquipmentField(key)}>
+                <Trash2 className="w-3 h-3" />
+              </Button>
+            </div>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <Input placeholder="Ex: Modèle chaudière" value={newFieldKey} onChange={(e) => setNewFieldKey(e.target.value)} className="h-8 flex-1 text-sm" />
+          <Input placeholder="Ex: Chaffoteau 2019" value={newFieldValue} onChange={(e) => setNewFieldValue(e.target.value)} className="h-8 flex-1 text-sm" onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addEquipmentField())} />
+          <Button size="sm" onClick={addEquipmentField} disabled={!newFieldKey.trim()}><Plus className="w-4 h-4" /></Button>
+        </div>
+      </div>
+
+      <div className="rounded-lg bg-red-50 border border-red-200 p-4">
+        <p className="text-sm text-red-800 leading-relaxed">
+          <strong>Important :</strong> Ce QR code sera accessible publiquement et affichera un bouton &quot;APPELER MAINTENANT&quot;.
+          Assurez-vous que les informations de contact de votre maison sont à jour.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// NEIGHBORHOOD EDITOR (V3)
+// ═══════════════════════════════════════════════════════════════
+function NeighborhoodEditor({ content, onChange }: { content: any; onChange: (c: any) => void }) {
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label>Centre de la carte (latitude)</Label>
+        <Input
+          type="number"
+          step="0.0001"
+          placeholder="48.8566"
+          value={content.centerLatitude ?? ''}
+          onChange={(e) => onChange({ ...content, centerLatitude: e.target.value ? parseFloat(e.target.value) : undefined })}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label>Centre de la carte (longitude)</Label>
+        <Input
+          type="number"
+          step="0.0001"
+          placeholder="2.3522"
+          value={content.centerLongitude ?? ''}
+          onChange={(e) => onChange({ ...content, centerLongitude: e.target.value ? parseFloat(e.target.value) : undefined })}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label>Rayon de recherche par défaut (km)</Label>
+        <Input
+          type="number"
+          step="0.5"
+          min="0.5"
+          max="10"
+          placeholder="2"
+          value={content.defaultRadiusKm ?? ''}
+          onChange={(e) => onChange({ ...content, defaultRadiusKm: e.target.value ? parseFloat(e.target.value) : undefined })}
+        />
+        <p className="text-xs text-muted-foreground">Laissez vide pour utiliser la position de la maison et un rayon de 2 km par défaut.</p>
+      </div>
+      <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-4">
+        <p className="text-sm text-emerald-800 leading-relaxed">
+          La carte affichera les commerçants du quartier avec leurs promotions actuelles.
+          Les utilisateurs pourront filtrer par catégorie et voir les promos à proximité.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
 // STOCK DLC EDITOR (simplified — product management is in StockPanel)
 // ═══════════════════════════════════════════════════════════════
 function StockDlcEditor({ content, onChange }: { content: any; onChange: (c: any) => void }) {
@@ -703,6 +826,8 @@ export function ContentEditor({ qrId, type, initialContent, onSave }: ContentEdi
       case 'energy_counter': return <EnergyCounterEditor content={content} onChange={handleChange} />;
       case 'keys_tracker': return <KeysTrackerEditor content={content} onChange={handleChange} />;
       case 'deep_cleaning': return <DeepCleaningEditor content={content} onChange={handleChange} />;
+      case 'emergency_service': return <EmergencyServiceEditor content={content} onChange={handleChange} />;
+      case 'neighborhood': return <NeighborhoodEditor content={content} onChange={handleChange} />;
       default: return <p className="text-sm text-muted-foreground">Type non supporté</p>;
     }
   };
