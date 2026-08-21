@@ -1,6 +1,6 @@
 'use client';
 
-import { useSession, signOut } from 'next-auth/react';
+import { useSession } from 'next-auth/react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -174,7 +174,10 @@ export function DashboardLayout() {
   const currentPageLabel = navItems.find((n) => n.id === activePage)?.label || 'Vue d\'ensemble';
 
   const handleLogout = async () => {
-    await signOut({ callbackUrl: '/' });
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch { /* ignore */ }
+    window.location.href = '/';
   };
 
   return (

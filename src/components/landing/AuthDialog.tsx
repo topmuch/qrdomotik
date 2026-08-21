@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QrCode, Eye, EyeOff, ArrowRight, Loader2, Mail, Lock, User } from 'lucide-react';
-import { signIn } from 'next-auth/react';
+// Uses custom /api/auth/login (no CSRF issues behind proxy)
+// import { signIn } from 'next-auth/react';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store/auth-store';
 import {
@@ -80,16 +81,19 @@ export function AuthDialog() {
     }
     setLoading(true);
     try {
-      const result = await signIn('credentials', {
-        email: loginEmail.trim(),
-        password: loginPassword,
-        redirect: false,
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: loginEmail.trim(), password: loginPassword }),
       });
-      if (result?.error) {
-        toast.error('Email ou mot de passe incorrect');
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        toast.error(data.error || 'Email ou mot de passe incorrect');
       } else {
         toast.success('Connexion réussie !');
         closeAuth();
+        // Force session refresh
+        window.location.reload();
       }
     } catch {
       toast.error('Erreur de connexion au serveur');
@@ -125,12 +129,14 @@ export function AuthDialog() {
         return;
       }
       toast.success('Compte créé ! Connexion en cours...');
-      const result = await signIn('credentials', {
-        email: regEmail.trim(),
-        password: regPassword,
-        redirect: false,
+      // Use custom login endpoint (no CSRF issues)
+      const loginRes = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: regEmail.trim(), password: regPassword }),
       });
-      if (result?.error) {
+      const loginData = await loginRes.json();
+      if (!loginRes.ok || !loginData.success) {
         toast.info('Compte créé. Connectez-vous maintenant.');
         setTab('login');
         setLoginEmail(regEmail.trim());
@@ -138,6 +144,7 @@ export function AuthDialog() {
       } else {
         toast.success('Bienvenue sur QR Domotik !');
         closeAuth();
+        window.location.reload();
       }
     } catch {
       toast.error('Erreur serveur, veuillez réessayer');

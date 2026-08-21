@@ -4,6 +4,8 @@ import bcrypt from 'bcryptjs';
 import { db } from './db';
 
 export const authOptions: NextAuthOptions = {
+  // Trust reverse proxy headers (Caddy) so CSRF + callbacks work behind proxy
+  trustHost: true,
   providers: [
     CredentialsProvider({
       name: 'credentials',
