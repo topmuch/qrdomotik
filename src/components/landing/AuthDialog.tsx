@@ -82,10 +82,15 @@ export function AuthDialog() {
     }
     setLoading(true);
     try {
+      // Use URL-encoded form data (more proxy-compatible than JSON)
+      const formBody = new URLSearchParams({
+        email: loginEmail.trim(),
+        password: loginPassword,
+      }).toString();
       const res = await fetch('/api/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: loginEmail.trim(), password: loginPassword }),
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: formBody,
       });
       const data = await res.json();
       if (!res.ok) {
@@ -94,10 +99,10 @@ export function AuthDialog() {
       }
       toast.success('Connexion réussie !');
       closeAuth();
-      // Force session update after a short delay to let cookie propagate
       setTimeout(() => { window.location.reload(); }, 300);
-    } catch {
+    } catch (err) {
       toast.error('Erreur de connexion au serveur');
+      console.error('[LOGIN] fetch error:', err);
     } finally {
       setLoading(false);
     }
@@ -130,10 +135,14 @@ export function AuthDialog() {
         return;
       }
       toast.success('Compte créé ! Connexion en cours...');
+      const loginFormBody = new URLSearchParams({
+        email: regEmail.trim(),
+        password: regPassword,
+      }).toString();
       const loginRes = await fetch('/api/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: regEmail.trim(), password: regPassword }),
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: loginFormBody,
       });
       const loginData = await loginRes.json();
       if (!loginRes.ok) {
