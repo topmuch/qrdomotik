@@ -173,9 +173,8 @@ export function DashboardLayout() {
   const firstName = user?.name?.split(' ')[0] || 'Utilisateur';
   const currentPageLabel = navItems.find((n) => n.id === activePage)?.label || 'Vue d\'ensemble';
 
-  const handleLogout = async () => {
-    await fetch('/api/logout', { method: 'POST' });
-    window.location.href = '/';
+  const handleLogout = () => {
+    window.location.reload();
   };
 
   return (
