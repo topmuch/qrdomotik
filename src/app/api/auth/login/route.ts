@@ -1,12 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { SignJWT } from 'jose';
+import { EncryptJWT } from 'jose';
+import { v4 as uuidv4 } from 'uuid';
+import hkdf from '@panva/hkdf';
 import { db } from '@/lib/db';
 
-// Encode NEXTAUTH_SECRET as Uint8Array for jose
-function getSecret(): Uint8Array {
-  const secret = process.env.NEXTAUTH_SECRET || 'fallback-secret';
-  return new TextEncoder().encode(secret);
+// Replicate NextAuth's exact JWE encryption so /api/auth/session can decode it
+const DEFAULT_MAX_AGE = 30 * 24 * 60 * 60; // 30 days
+
+async function getDerivedEncryptionKey(keyMaterial: string, salt: string) {
+  return await hkdf(
+    'sha256',
+    keyMaterial,
+    salt,
+    `NextAuth.js Generated Encryption Key${salt ? ` (${salt})` : ''}`,
+    32
+  );
+}
+
+async function encodeNextAuthJwt(token: Record<string, unknown>, secret: string) {
+  const encryptionSecret = await getDerivedEncryptionKey(secret, '');
+  return await new EncryptJWT(token)
+    .setProtectedHeader({ alg: 'dir', enc: 'A256GCM' })
+    .setIssuedAt()
+    .setExpirationTime(Math.floor(Date.now() / 1000) + DEFAULT_MAX_AGE)
+    .setJti(uuidv4())
+    .encrypt(encryptionSecret);
 }
 
 export async function POST(req: NextRequest) {
@@ -40,20 +59,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Create a NextAuth-compatible JWT using jose (same lib NextAuth uses)
-    // Include all fields the jwt callback expects
-    const secret = getSecret();
-    const token = await new SignJWT({
+    // Build the token exactly like NextAuth's jwt callback would produce
+    const token = {
       sub: user.id,
-      id: user.id,
       name: user.fullName,
       email: user.email,
+      id: user.id,
       role: user.role,
-    })
-      .setProtectedHeader({ alg: 'HS256' })
-      .setIssuedAt()
-      .setExpirationTime('30d')
-      .sign(secret);
+    };
+
+    // Encrypt using NextAuth's exact JWE format
+    const secret = process.env.NEXTAUTH_SECRET || 'fallback-secret';
+    const encryptedToken = await encodeNextAuthJwt(token, secret);
 
     const response = NextResponse.json({
       success: true,
@@ -65,18 +82,18 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Set the NextAuth session cookie
+    // Set cookie with same settings NextAuth uses
     const forwardedProto = req.headers.get('x-forwarded-proto');
     const isSecure = forwardedProto === 'https';
 
     response.cookies.set({
       name: 'next-auth.session-token',
-      value: token,
+      value: encryptedToken,
       httpOnly: true,
       secure: isSecure,
       sameSite: 'lax',
       path: '/',
-      maxAge: 30 * 24 * 60 * 60,
+      maxAge: DEFAULT_MAX_AGE,
     });
 
     return response;
