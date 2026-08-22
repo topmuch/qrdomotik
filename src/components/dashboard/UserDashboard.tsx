@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useSession, signOut } from 'next-auth/react';
+import { useSession } from 'next-auth/react';
 import { motion } from 'framer-motion';
 import {
   QrCode, Home, Plus, Settings, LogOut, ShieldCheck,
@@ -65,7 +65,8 @@ export function UserDashboard() {
   useEffect(() => { fetchDashboard(); }, [fetchDashboard]);
 
   const handleLogout = async () => {
-    await signOut({ callbackUrl: '/' });
+    await fetch('/api/logout', { method: 'POST' });
+    window.location.href = '/';
   };
 
   if (!user) return null;

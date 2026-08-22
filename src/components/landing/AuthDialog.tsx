@@ -3,9 +3,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QrCode, Eye, EyeOff, ArrowRight, Loader2, Mail, Lock, User } from 'lucide-react';
-import { signIn } from 'next-auth/react';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store/auth-store';
+import { useSession } from 'next-auth/react';
 import {
   Dialog,
   DialogContent,
@@ -72,6 +72,8 @@ export function AuthDialog() {
     setShowPassword(false);
   };
 
+  const { update: updateSession } = useSession();
+
   const handleLogin = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     if (!loginEmail.trim() || !loginPassword.trim()) {
@@ -80,17 +82,20 @@ export function AuthDialog() {
     }
     setLoading(true);
     try {
-      const result = await signIn('credentials', {
-        email: loginEmail.trim(),
-        password: loginPassword,
-        redirect: false,
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: loginEmail.trim(), password: loginPassword }),
       });
-      if (result?.error) {
-        toast.error('Email ou mot de passe incorrect');
-      } else {
-        toast.success('Connexion réussie !');
-        closeAuth();
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || 'Email ou mot de passe incorrect');
+        return;
       }
+      toast.success('Connexion réussie !');
+      closeAuth();
+      // Force session update after a short delay to let cookie propagate
+      setTimeout(() => { window.location.reload(); }, 300);
     } catch {
       toast.error('Erreur de connexion au serveur');
     } finally {
@@ -125,12 +130,13 @@ export function AuthDialog() {
         return;
       }
       toast.success('Compte créé ! Connexion en cours...');
-      const result = await signIn('credentials', {
-        email: regEmail.trim(),
-        password: regPassword,
-        redirect: false,
+      const loginRes = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: regEmail.trim(), password: regPassword }),
       });
-      if (result?.error) {
+      const loginData = await loginRes.json();
+      if (!loginRes.ok) {
         toast.info('Compte créé. Connectez-vous maintenant.');
         setTab('login');
         setLoginEmail(regEmail.trim());
@@ -138,6 +144,7 @@ export function AuthDialog() {
       } else {
         toast.success('Bienvenue sur QR Domotik !');
         closeAuth();
+        setTimeout(() => { window.location.reload(); }, 300);
       }
     } catch {
       toast.error('Erreur serveur, veuillez réessayer');
