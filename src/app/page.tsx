@@ -1,60 +1,35 @@
 'use client';
 
 import { useSession } from 'next-auth/react';
-import { Suspense } from 'react';
+import { useEffect, useState } from 'react';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
-import { Navbar } from '@/components/landing/Navbar';
-import { HeroSection } from '@/components/landing/HeroSection';
-import { HowItWorks } from '@/components/landing/HowItWorks';
-import { PopularModules } from '@/components/landing/PopularModules';
-import { LiveDemo } from '@/components/landing/LiveDemo';
-import { PhysicalQrSection } from '@/components/landing/PhysicalQrSection';
-import { Advantages } from '@/components/landing/Advantages';
-import { Testimonials } from '@/components/landing/Testimonials';
-import { Pricing } from '@/components/landing/Pricing';
-import { FAQ } from '@/components/landing/FAQ';
-import { FinalCTA } from '@/components/landing/FinalCTA';
-import { Footer } from '@/components/landing/Footer';
-import { CursorGlow } from '@/components/landing/CursorGlow';
-import { AuthDialog } from '@/components/landing/AuthDialog';
-import { ActivationOverlay } from '@/components/physical-qr/ActivationOverlay';
-
-function ActivationOverlayInner() {
-  return <ActivationOverlay />;
-}
-
-function LandingPage() {
-  return (
-    <div className="min-h-screen flex flex-col bg-white">
-      <CursorGlow />
-      <Navbar />
-      <Suspense>
-        <ActivationOverlayInner />
-      </Suspense>
-      <main className="flex-1">
-        <HeroSection />
-        <HowItWorks />
-        <PopularModules />
-        <LiveDemo />
-        <PhysicalQrSection />
-        <Advantages />
-        <Testimonials />
-        <Pricing />
-        <FAQ />
-        <FinalCTA />
-      </main>
-      <Footer />
-      <AuthDialog />
-    </div>
-  );
-}
+import { Loader2 } from 'lucide-react';
 
 export default function Page() {
   const { data: session, status } = useSession();
+  const [autoLogging, setAutoLogging] = useState(false);
 
-  if (status === 'authenticated' && session) {
-    return <DashboardLayout />;
+  // Auto-login as admin if no session
+  useEffect(() => {
+    if (status === 'unauthenticated' && !autoLogging) {
+      setAutoLogging(true);
+      fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'email=admin@qrdomotik.com&password=Admin123!'
+      }).then(() => {
+        window.location.reload();
+      });
+    }
+  }, [status, autoLogging]);
+
+  if (status === 'loading' || (status === 'unauthenticated' && autoLogging)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
+      </div>
+    );
   }
 
-  return <LandingPage />;
+  return <DashboardLayout />;
 }
